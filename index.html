@@ -501,8 +501,8 @@ tbody tr:hover{background:var(--card);}
       <select id="mu-posicao"><option>Sócio</option><option>Comercial</option><option>Operacional</option></select>
       <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa (o que sobra depois da rede e dos impostos), e ela entra na divisão do Lucro Sócio. Comercial: funciona como um comissionado comum. Operacional: tem login pra operar o sistema, mas fica fora de tudo — não entra na divisão de lucro, não aparece nos Extratos nem em nenhum relatório.</div>
     </div>
-    <div class="field"><label id="mu-senha-label">Senha *</label><input type="password" id="mu-senha" autocomplete="new-password" placeholder="Mínimo 4 caracteres"></div>
-    <div class="field-hint" id="mu-senha-hint" style="margin-bottom:6px"></div>
+    <div class="field"><label id="mu-senha-label">Senha *</label><input type="text" id="mu-senha" autocomplete="off" spellcheck="false" placeholder="Mínimo 4 caracteres"></div>
+    <div class="field-hint" id="mu-senha-hint" style="margin-bottom:6px">Fica visível aqui de propósito — só quem já tem acesso ao sistema chega nessa tela, e não existe "esqueci minha senha".</div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-usuario')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveUsuario()">Salvar</button>
@@ -561,7 +561,7 @@ const SESSION_KEY = 'cbs_session_v1';
 function defaultDB(){
   return {
     usuarios: [
-      { id:1, nome:'Bruno Rivero', email:'bruno.rivero@gmail.com', senha:'trocar-no-primeiro-acesso', posicao:'Sócio' } // troque a senha em Configurações assim que entrar
+      { id:1, nome:'Bruno Rivero', email:'bruno.rivero@gmail.com', senha:'cbs1234', posicao:'Sócio' } // senha de teste — troque em Configurações → Usuários assim que entrar
     ],
     comissionados: [],
     negocios: [],
@@ -691,13 +691,9 @@ function openUsuarioModal(id){
   setVal('mu-id', id||'');
   if(id){
     const u = STORE.usuarios.find(u=>u.id===id);
-    setVal('mu-nome', u.nome); setVal('mu-email', u.email); setVal('mu-senha',''); setVal('mu-posicao', u.posicao||'Sócio');
-    document.getElementById('mu-senha-label').textContent = 'Nova senha';
-    document.getElementById('mu-senha-hint').textContent = 'Deixe em branco pra manter a senha atual.';
+    setVal('mu-nome', u.nome); setVal('mu-email', u.email); setVal('mu-senha', u.senha); setVal('mu-posicao', u.posicao||'Sócio');
   } else {
     setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-senha',''); setVal('mu-posicao','Sócio');
-    document.getElementById('mu-senha-label').textContent = 'Senha *';
-    document.getElementById('mu-senha-hint').textContent = '';
   }
   document.getElementById('modal-usuario').classList.add('open');
 }
@@ -708,15 +704,14 @@ function saveUsuario(){
   const posicao = val('mu-posicao');
   const id = val('mu-id');
   if(!nome || !email){ toast('Preencha nome e e-mail.','err'); return; }
+  if(!senha || senha.length<4){ toast('Informe uma senha com pelo menos 4 caracteres.','err'); return; }
   const duplicado = STORE.usuarios.find(u=>u.email.toLowerCase()===email && String(u.id)!==id);
   if(duplicado){ toast('Já existe um usuário com esse e-mail.','err'); return; }
   if(id){
     const u = STORE.usuarios.find(u=>u.id===Number(id));
-    u.nome = nome; u.email = email; u.posicao = posicao;
-    if(senha) u.senha = senha;
+    u.nome = nome; u.email = email; u.posicao = posicao; u.senha = senha;
     toast('Usuário atualizado.');
   } else {
-    if(!senha || senha.length<4){ toast('Informe uma senha com pelo menos 4 caracteres.','err'); return; }
     STORE.usuarios.push({ id: STORE.seq.usuario++, nome, email, senha, posicao });
     toast('Usuário cadastrado.');
   }
