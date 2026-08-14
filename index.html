@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>CBS</title>
+<style>
+:root{
+  --bg:#0b1220; --panel:#0f1830; --card:#131f3d; --card2:#16244a;
+  --border:#22314f; --border2:#2c3e64;
+  --text:#e7ecf7; --text-dim:#93a4c7; --text-faint:#5f7099;
+  --accent:#10b981; --accent-dim:#0d9c6e; --accent-bg:rgba(16,185,129,.12);
+  --blue:#3b82f6; --blue-bg:rgba(59,130,246,.12);
+  --warn:#f59e0b; --warn-bg:rgba(245,158,11,.12);
+  --danger:#ef4444; --danger-bg:rgba(239,68,68,.12);
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg); color:var(--text); min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::-webkit-scrollbar{width:10px;height:10px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+input,select,textarea,button{font-family:inherit;color:inherit;}
+button{cursor:pointer;}
+a{color:inherit;}
+
+/* ---------- LOGIN ---------- */
+#screen-login{
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at top,#111c38 0%,#0b1220 60%);
+  padding:20px;
+}
+.login-box{
+  width:100%; max-width:360px; background:var(--panel); border:1px solid var(--border);
+  border-radius:16px; padding:36px 32px; box-shadow:0 20px 60px rgba(0,0,0,.4);
+}
+.login-logo{
+  width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#04160f;
+  margin:0 auto 18px;
+}
+.login-box h1{text-align:center;font-size:20px;font-weight:700;letter-spacing:.02em;}
+.login-box p{text-align:center;color:var(--text-dim);font-size:13px;margin-top:4px;margin-bottom:24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:12px;color:var(--text-dim);margin-bottom:6px;font-weight:600;}
+.field input,.field select,.field textarea{
+  width:100%; background:var(--card); border:1px solid var(--border); border-radius:9px;
+  padding:11px 12px; font-size:14px; color:var(--text); outline:none; transition:border-color .15s;
+}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);}
+.field textarea{resize:vertical;min-height:60px;}
+.btn{
+  border:none;border-radius:9px;padding:11px 16px;font-size:14px;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;transition:opacity .15s,transform .1s;
+}
+.btn:active{transform:scale(.98);}
+.btn-primary{background:var(--accent);color:#04160f;}
+.login-box .btn-primary{width:100%;}
+.btn-primary:hover{opacity:.9;}
+.btn-ghost{background:var(--card2);color:var(--text);border:1px solid var(--border2);}
+.btn-ghost:hover{background:var(--border2);}
+.btn-danger{background:var(--danger-bg);color:#fca5a5;border:1px solid rgba(239,68,68,.35);}
+.btn-danger:hover{background:rgba(239,68,68,.22);}
+.btn-sm{padding:7px 11px;font-size:12.5px;}
+.login-err{display:none;background:var(--danger-bg);color:#fca5a5;border:1px solid rgba(239,68,68,.3);
+  border-radius:8px;padding:9px 11px;font-size:12.5px;margin-bottom:14px;text-align:center;}
+
+/* ---------- APP SHELL ---------- */
+#app{display:none;min-height:100vh;}
+.app-wrap{display:flex;min-height:100vh;}
+.sidebar{
+  width:220px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:20px 14px;position:sticky;top:0;height:100vh;
+}
+.side-logo{display:flex;align-items:center;gap:10px;padding:0 6px 22px;}
+.side-logo .mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:#04160f;}
+.side-logo .txt{font-weight:700;font-size:15px;letter-spacing:.02em;}
+.side-logo .txt small{display:block;font-size:10.5px;color:var(--text-faint);font-weight:500;}
+.nav-item{
+  display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;margin-bottom:2px;
+  font-size:13.5px;font-weight:600;color:var(--text-dim);cursor:pointer;transition:background .15s,color .15s;
+  user-select:none;
+}
+.nav-item .ic{width:18px;text-align:center;font-size:15px;}
+.nav-item:hover{background:var(--card);color:var(--text);}
+.nav-item.active{background:var(--accent-bg);color:var(--accent);}
+.side-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--border);}
+.side-user{font-size:12.5px;color:var(--text-dim);padding:0 6px 10px;}
+.side-user b{color:var(--text);display:block;font-size:13px;}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column;}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;padding:18px 28px;
+  border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:5;
+}
+.topbar h2{font-size:19px;font-weight:700;}
+.topbar .sub{font-size:12.5px;color:var(--text-faint);margin-top:2px;}
+.content{padding:24px 28px 60px;}
+.view{display:none;}
+.view.active{display:block;}
+
+/* ---------- CARDS / DASHBOARD ---------- */
+.grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:26px;}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
+.stat-card .lbl{font-size:12px;color:var(--text-dim);font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;line-height:1.35;min-height:2.7em;}
+.stat-card .val{font-size:22px;font-weight:800;}
+.stat-card .val.green{color:var(--accent);}
+.stat-card .val.warn{color:var(--warn);}
+.stat-card .val.blue{color:var(--blue);}
+.stat-card .hint{font-size:11.5px;color:var(--text-faint);margin-top:4px;}
+
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
+.panel-head h3{font-size:15.5px;font-weight:700;}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.toolbar input,.toolbar select{background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;font-size:13px;color:var(--text);outline:none;}
+.toolbar input:focus,.toolbar select:focus{border-color:var(--accent);}
+
+/* ---------- TABLE ---------- */
+.tbl-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:13.5px;}
+th{text-align:left;color:var(--text-faint);font-weight:600;font-size:11.5px;text-transform:uppercase;
+  letter-spacing:.03em;padding:9px 10px;border-bottom:1px solid var(--border);white-space:nowrap;}
+td{padding:11px 10px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:last-child td{border-bottom:none;}
+tbody tr:hover{background:var(--card);}
+.empty-row td{text-align:center;color:var(--text-faint);padding:34px 10px;font-size:13px;}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge.green{background:var(--accent-bg);color:var(--accent);}
+.badge.warn{background:var(--warn-bg);color:var(--warn);}
+.badge.blue{background:var(--blue-bg);color:var(--blue);}
+.badge.red{background:var(--danger-bg);color:#fca5a5;}
+.badge.gray{background:var(--card2);color:var(--text-dim);}
+.row-actions{display:flex;gap:6px;}
+.icon-btn{background:var(--card2);border:1px solid var(--border2);border-radius:7px;width:28px;height:28px;
+  display:inline-flex;align-items:center;justify-content:center;font-size:13px;color:var(--text-dim);}
+.icon-btn:hover{color:var(--text);background:var(--border2);}
+.name-cell b{display:block;}
+.name-cell small{color:var(--text-faint);font-size:11.5px;}
+
+/* ---------- MODAL ---------- */
+.modal-overlay{
+  display:none;position:fixed;inset:0;background:rgba(4,8,18,.65);z-index:50;
+  align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto;backdrop-filter:blur(2px);
+}
+.modal-overlay.open{display:flex;}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:16px;width:100%;max-width:560px;
+  padding:26px 26px 22px;box-shadow:0 25px 70px rgba(0,0,0,.5);}
+.modal.wide{max-width:720px;}
+.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.modal-head h3{font-size:17px;font-weight:700;}
+.modal-close{background:none;border:none;color:var(--text-faint);font-size:18px;line-height:1;}
+.modal-close:hover{color:var(--text);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.form-row.c3{grid-template-columns:1fr 1fr 1fr;}
+.modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);}
+
+/* split rows inside negocio modal */
+.split-box{border:1px solid var(--border);border-radius:10px;padding:12px;background:var(--card);margin-top:6px;}
+.split-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;}
+.split-row:last-child{margin-bottom:0;}
+.split-row select{flex:1 1 140px;min-width:100px;}
+.split-row input{flex:0 0 70px;}
+.split-row select,.split-row input{background:var(--card2);border:1px solid var(--border2);border-radius:7px;
+  padding:8px 9px;font-size:13px;color:var(--text);}
+.split-row .chk{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--text-dim);white-space:nowrap;flex:0 0 auto;}
+.split-row .icon-btn{flex:0 0 auto;}
+.split-sum{font-size:12px;color:var(--text-dim);margin-top:8px;text-align:right;}
+.split-sum b{color:var(--text);}
+
+.empty-state{text-align:center;padding:50px 20px;color:var(--text-faint);}
+.empty-state .ic{font-size:34px;margin-bottom:10px;}
+.empty-state p{font-size:13.5px;max-width:340px;margin:6px auto 0;}
+
+.field-hint{font-size:11px;color:var(--text-faint);margin-top:4px;}
+
+/* toast */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--card2);border:1px solid var(--border2);
+  border-radius:10px;padding:12px 16px;font-size:13px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.4);
+  display:none;z-index:100;align-items:center;gap:8px;}
+#toast.show{display:flex;}
+#toast.ok{border-color:rgba(16,185,129,.4);color:var(--accent);}
+#toast.err{border-color:rgba(239,68,68,.4);color:#fca5a5;}
+
+/* extrato print */
+#print-area{display:none;}
+@media print{
+  body *{visibility:hidden;}
+  #print-area, #print-area *{visibility:visible;}
+  #print-area{display:block!important;position:absolute;top:0;left:0;width:100%;padding:20px;color:#000;background:#fff;}
+  #print-area table{color:#000;}
+  #print-area th,#print-area td{border-color:#ccc;}
+}
+
+/* responsive */
+@media (max-width:880px){
+  .app-wrap{flex-direction:column;}
+  .sidebar{width:100%;height:auto;position:static;flex-direction:row;overflow-x:auto;padding:12px;align-items:center;}
+  .side-logo{padding:0 12px 0 0;}
+  .side-foot{display:none;}
+  .nav-item{white-space:nowrap;margin-bottom:0;}
+  .content{padding:18px 14px 50px;}
+  .topbar{padding:14px 16px;}
+  .form-row,.form-row.c3{grid-template-columns:1fr;}
+  .split-row{flex-direction:column;align-items:stretch;gap:6px;}
+  .split-row select,.split-row input{flex:1 1 auto;}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="screen-login">
+  <div class="login-box">
+    <div class="login-logo">CBS</div>
+    <h1>CBS</h1>
+    <p>Controle da rede comercial</p>
+    <div class="login-err" id="login-err">E-mail ou senha incorretos.</div>
+    <div class="field">
+      <label>E-mail</label>
+      <input type="email" id="l-email" placeholder="seu@email.com" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>Senha</label>
+      <input type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app">
+<div class="app-wrap">
+  <div class="sidebar">
+    <div class="side-logo">
+      <div class="mark">CBS</div>
+      <div class="txt">CBS<small>Rede comercial</small></div>
+    </div>
+    <div class="nav-item active" data-view="dashboard" onclick="goView('dashboard')"><span class="ic">◈</span> Dashboard</div>
+    <div class="nav-item" data-view="negocios" onclick="goView('negocios')"><span class="ic">◆</span> Negócios</div>
+    <div class="nav-item" data-view="recebimentos" onclick="goView('recebimentos')"><span class="ic">▤</span> Recebimentos</div>
+    <div class="nav-item" data-view="rede" onclick="goView('rede')"><span class="ic">◎</span> Rede</div>
+    <div class="nav-item" data-view="pagamentos" onclick="goView('pagamentos')"><span class="ic">$</span> Pagamentos</div>
+    <div class="nav-item" data-view="extratos" onclick="goView('extratos')"><span class="ic">▥</span> Extratos</div>
+    <div class="nav-item" data-view="config" onclick="goView('config')"><span class="ic">⚙</span> Configurações</div>
+    <div class="side-foot">
+      <div class="side-user"><b id="side-user-name">—</b>logado</div>
+      <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <h2 id="topbar-title">Dashboard</h2>
+        <div class="sub" id="topbar-sub">Visão geral da operação</div>
+      </div>
+      <div class="toolbar">
+        <button class="btn btn-primary btn-sm" id="topbar-cta" onclick="openNegocioModal()">+ Novo negócio</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="view active" id="view-dashboard">
+        <div class="grid-cards" id="dash-cards"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Lucro por sócio</h3></div>
+          <div id="dash-lucro"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Negócios recentes</h3></div>
+          <div class="tbl-wrap"><table id="dash-tbl-negocios"><thead><tr>
+            <th>Empresa</th><th>Início</th><th>Status</th><th>Rede</th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Repasses pendentes</h3></div>
+          <div class="tbl-wrap"><table id="dash-tbl-pendentes"><thead><tr>
+            <th>Comissionado</th><th>Empresa</th><th>Valor</th><th>Data recebimento</th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- NEGOCIOS -->
+      <div class="view" id="view-negocios">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Negócios / relacionamentos</h3>
+            <div class="toolbar">
+              <input type="text" id="neg-busca" placeholder="Buscar empresa..." oninput="renderNegocios()">
+              <select id="neg-filtro-status" onchange="renderNegocios()">
+                <option value="">Todos os status</option>
+                <option value="Ativo">Ativo</option>
+                <option value="Encerrado">Encerrado</option>
+                <option value="Cancelado">Cancelado</option>
+              </select>
+            </div>
+          </div>
+          <div class="tbl-wrap"><table id="tbl-negocios"><thead><tr>
+            <th>Empresa cliente</th><th>Início</th><th>Status</th><th>Rede envolvida</th><th></th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- RECEBIMENTOS -->
+      <div class="view" id="view-recebimentos">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Recebimentos do banco</h3>
+            <div class="toolbar">
+              <button class="btn btn-primary btn-sm" onclick="openRecebimentoModal()">+ Lançar recebimento</button>
+            </div>
+          </div>
+          <p class="field-hint" style="margin-bottom:14px">Cada lançamento representa um valor recebido do banco referente a um negócio. O sistema divide automaticamente entre os comissionados conforme o % configurado no negócio.</p>
+          <div class="tbl-wrap"><table id="tbl-recebimentos"><thead><tr>
+            <th>Data</th><th>Empresa</th><th>Referência</th><th>Valor recebido</th><th>Agente Banco</th><th>Repasse à rede</th><th></th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- REDE -->
+      <div class="view" id="view-rede">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Rede comercial</h3>
+            <div class="toolbar">
+              <button class="btn btn-primary btn-sm" onclick="openComissionadoModal()">+ Novo comissionado</button>
+            </div>
+          </div>
+          <div class="tbl-wrap"><table id="tbl-rede"><thead><tr>
+            <th>Nome</th><th>Contato</th><th>Status</th><th>Negócios</th><th>Recebido</th><th>Pendente</th><th></th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- PAGAMENTOS -->
+      <div class="view" id="view-pagamentos">
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Pagamentos à rede</h3>
+            <div class="toolbar">
+              <select id="pag-filtro" onchange="renderPagamentos()">
+                <option value="Pendente">Pendentes</option>
+                <option value="Pago">Pagos</option>
+                <option value="">Todos</option>
+              </select>
+            </div>
+          </div>
+          <div class="tbl-wrap"><table id="tbl-pagamentos"><thead><tr>
+            <th>Comissionado</th><th>Empresa</th><th>Recebimento</th><th>Valor</th><th>Status</th><th>Data pagto</th><th></th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- EXTRATOS -->
+      <div class="view" id="view-extratos">
+        <div class="panel">
+          <div class="panel-head"><h3>Extrato individual</h3></div>
+          <div class="toolbar" style="margin-bottom:16px">
+            <select id="ext-pessoa" onchange="renderExtrato()" style="min-width:220px"></select>
+            <input type="date" id="ext-de" onchange="renderExtrato()">
+            <span style="color:var(--text-faint);font-size:12px">até</span>
+            <input type="date" id="ext-ate" onchange="renderExtrato()">
+            <button class="btn btn-ghost btn-sm" onclick="printExtrato()">🖨 Imprimir / PDF</button>
+          </div>
+          <div class="grid-cards" id="ext-cards" style="margin-bottom:18px"></div>
+          <div class="tbl-wrap"><table id="tbl-extrato"><thead id="tbl-extrato-head"></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+      <!-- CONFIGURAÇÕES -->
+      <div class="view" id="view-config">
+        <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>Divisão da comissão recebida</h3></div>
+          <p class="field-hint" style="margin-bottom:16px">
+            O valor que chega em cada Recebimento já vem sem a parte retida pelo banco na fonte. Sobre esse valor recebido, primeiro sai o imposto — o que sobra é o Lucro Bruto CBS. Desse Lucro Bruto, o Agente Banco fica com sua fatia (ex: 50%) e o restante é o Lucro Líquido CBS. A comissão da rede comercial é um percentual calculado sobre o Lucro Líquido CBS (não sobre o Lucro Bruto). Esses percentuais são aplicados automaticamente em todo recebimento novo (dá pra ajustar pontualmente em cada lançamento, se precisar).
+          </p>
+          <div class="field">
+            <label>% de imposto sobre o valor recebido</label>
+            <input type="number" step="0.01" min="0" max="100" id="cfg-imposto-pct">
+          </div>
+          <div class="field">
+            <label>% retido pelo Agente Banco (sobre o valor já sem o imposto)</label>
+            <input type="number" step="0.01" min="0" max="100" id="cfg-agente-pct">
+          </div>
+          <div class="field-hint" id="cfg-preview" style="margin-bottom:16px"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveConfig()">Salvar configuração</button>
+        </div>
+
+        <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>Manutenção</h3></div>
+          <p class="field-hint" style="margin-bottom:14px">
+            Cada recebimento guarda os valores já calculados no momento do lançamento. Se a fórmula mudar depois, recebimentos antigos continuam com os números de quando foram salvos — os totais do Dashboard podem ficar inconsistentes (inclusive negativos) se você tiver recebimentos calculados com fórmulas diferentes. Use o botão abaixo pra recalcular todos os recebimentos já lançados com a fórmula atual (usando o % de imposto e Agente Banco que cada um já tinha, e o % de cada comissionado).
+          </p>
+          <button class="btn btn-ghost btn-sm" onclick="recalcularRecebimentos()">🔄 Recalcular todos os recebimentos</button>
+        </div>
+
+        <div class="panel" style="max-width:520px">
+          <div class="panel-head">
+            <h3>Usuários com acesso</h3>
+            <button class="btn btn-primary btn-sm" onclick="openUsuarioModal()">+ Novo usuário</button>
+          </div>
+          <p class="field-hint" style="margin-bottom:14px">Login e senha de quem pode entrar no sistema — pensado pros sócios.</p>
+          <div class="tbl-wrap"><table id="tbl-usuarios"><thead><tr>
+            <th>Nome</th><th>E-mail</th><th>Posição</th><th></th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============ PRINT AREA ============ -->
+<div id="print-area">
+  <h2 id="pa-nome"></h2>
+  <div id="pa-periodo" style="color:#555;font-size:13px;margin-bottom:14px"></div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <thead id="pa-thead"></thead>
+    <tbody id="pa-tbody"></tbody>
+  </table>
+  <div id="pa-totais" style="margin-top:16px;font-size:13px;text-align:right"></div>
+</div>
+
+<!-- ============ MODAL: NEGOCIO ============ -->
+<div class="modal-overlay" id="modal-negocio">
+  <div class="modal wide">
+    <div class="modal-head"><h3 id="mn-titulo">Novo negócio</h3><button class="modal-close" onclick="closeModal('modal-negocio')">✕</button></div>
+    <input type="hidden" id="mn-id">
+    <div class="form-row">
+      <div class="field"><label>Empresa cliente *</label><input type="text" id="mn-empresa" placeholder="Razão social / nome fantasia"></div>
+      <div class="field"><label>CNPJ</label><input type="text" id="mn-cnpj" placeholder="00.000.000/0000-00"></div>
+    </div>
+    <div class="form-row c3">
+      <div class="field"><label>Início</label><input type="date" id="mn-data"></div>
+      <div class="field"><label>Status</label>
+        <select id="mn-status"><option>Ativo</option><option>Encerrado</option><option>Cancelado</option></select>
+      </div>
+      <div class="field"><label>Observações</label><input type="text" id="mn-obs" placeholder="Opcional"></div>
+    </div>
+
+    <div class="field">
+      <label>Rede envolvida — divisão de comissão</label>
+      <div class="split-box" id="mn-split-box"></div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addSplitRow()">+ Adicionar comissionado</button>
+      <div class="split-sum">Total configurado: <b id="mn-split-total">0%</b></div>
+    </div>
+
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-negocio')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveNegocio()">Salvar negócio</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: COMISSIONADO ============ -->
+<div class="modal-overlay" id="modal-comissionado">
+  <div class="modal">
+    <div class="modal-head"><h3 id="mc-titulo">Novo comissionado</h3><button class="modal-close" onclick="closeModal('modal-comissionado')">✕</button></div>
+    <input type="hidden" id="mc-id">
+    <div class="field"><label>Nome *</label><input type="text" id="mc-nome"></div>
+    <div class="form-row">
+      <div class="field"><label>Telefone</label><input type="text" id="mc-tel" placeholder="(21) 90000-0000"></div>
+      <div class="field"><label>E-mail</label><input type="email" id="mc-email"></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Chave PIX</label><input type="text" id="mc-pix"></div>
+      <div class="field"><label>Status</label><select id="mc-status"><option>Ativo</option><option>Inativo</option></select></div>
+    </div>
+    <div class="field">
+      <label>Indicado / vinculado a</label>
+      <select id="mc-indicado"><option value="">Nenhum (entrou por conta própria)</option></select>
+      <div class="field-hint">Se essa pessoa entrou na rede através de outro comissionado (ex: vendem juntos, ou foi trazida por alguém), selecione aqui. É só pra referência — a divisão de comissão de cada negócio continua sendo configurada manualmente.</div>
+    </div>
+    <div class="field"><label>Observações</label><textarea id="mc-obs"></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-comissionado')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveComissionado()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: USUÁRIO ============ -->
+<div class="modal-overlay" id="modal-usuario">
+  <div class="modal">
+    <div class="modal-head"><h3 id="mu-titulo">Novo usuário</h3><button class="modal-close" onclick="closeModal('modal-usuario')">✕</button></div>
+    <input type="hidden" id="mu-id">
+    <div class="field"><label>Nome *</label><input type="text" id="mu-nome"></div>
+    <div class="field"><label>E-mail *</label><input type="email" id="mu-email" autocomplete="off"></div>
+    <div class="field">
+      <label>Posição</label>
+      <select id="mu-posicao"><option>Sócio</option><option>Comercial</option><option>Operacional</option></select>
+      <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa (o que sobra depois da rede e dos impostos), e ela entra na divisão do Lucro Sócio. Comercial: funciona como um comissionado comum. Operacional: tem login pra operar o sistema, mas fica fora de tudo — não entra na divisão de lucro, não aparece nos Extratos nem em nenhum relatório.</div>
+    </div>
+    <div class="field"><label id="mu-senha-label">Senha *</label><input type="password" id="mu-senha" autocomplete="new-password" placeholder="Mínimo 4 caracteres"></div>
+    <div class="field-hint" id="mu-senha-hint" style="margin-bottom:6px"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-usuario')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveUsuario()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: RECEBIMENTO ============ -->
+<div class="modal-overlay" id="modal-recebimento">
+  <div class="modal wide">
+    <div class="modal-head"><h3 id="mr-titulo">Lançar recebimento</h3><button class="modal-close" onclick="closeModal('modal-recebimento')">✕</button></div>
+    <input type="hidden" id="mr-id">
+    <div class="form-row c3">
+      <div class="field"><label>Negócio *</label><select id="mr-negocio" onchange="onRecebimentoNegocioChange()"></select></div>
+      <div class="field"><label>Data do recebimento *</label><input type="date" id="mr-data"></div>
+      <div class="field"><label>Referência</label><input type="month" id="mr-ref"></div>
+    </div>
+    <div class="form-row c3">
+      <div class="field"><label>Valor recebido (R$) *</label><input type="number" step="0.01" id="mr-valor" oninput="renderRecebimentoSplitPreview()"></div>
+      <div class="field"><label>% de imposto</label><input type="number" step="0.01" min="0" max="100" id="mr-imposto-pct" oninput="renderRecebimentoSplitPreview()"></div>
+      <div class="field"><label>% retido pelo Agente Banco</label><input type="number" step="0.01" min="0" max="100" id="mr-agente-pct" oninput="renderRecebimentoSplitPreview()"></div>
+    </div>
+    <div class="field"><label>Observações</label><input type="text" id="mr-obs"></div>
+    <div class="field">
+      <label>Divisão da rede (% definido no negócio, sobre o Lucro Líquido CBS)</label>
+      <div class="split-box" id="mr-split-preview"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-recebimento')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRecebimento()">Salvar recebimento</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: PAGAR ============ -->
+<div class="modal-overlay" id="modal-pagar">
+  <div class="modal">
+    <div class="modal-head"><h3>Confirmar pagamento</h3><button class="modal-close" onclick="closeModal('modal-pagar')">✕</button></div>
+    <input type="hidden" id="mp-recid"><input type="hidden" id="mp-comid">
+    <p style="font-size:13.5px;color:var(--text-dim);margin-bottom:14px" id="mp-desc"></p>
+    <div class="field"><label>Data do pagamento</label><input type="date" id="mp-data"></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-pagar')">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmPagamento()">Confirmar pago</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================= DADOS ================= */
+const STORAGE_KEY = 'cbs_db_v1';
+const SESSION_KEY = 'cbs_session_v1';
+
+function defaultDB(){
+  return {
+    usuarios: [
+      { id:1, nome:'Bruno Rivero', email:'bruno.rivero@gmail.com', senha:'trocar-no-primeiro-acesso', posicao:'Sócio' } // troque a senha em Configurações assim que entrar
+    ],
+    comissionados: [],
+    negocios: [],
+    recebimentos: [],
+    config: { agentePct: 50, impostoPct: 0 },
+    seq: { comissionado:1, negocio:1, recebimento:1, usuario:2 }
+  };
+}
+let STORE = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || defaultDB();
+if(!STORE.config) STORE.config = { agentePct: 50 }; // compat com bases criadas antes da área de Configurações
+if(STORE.config.impostoPct==null) STORE.config.impostoPct = 0; // compat
+if(!STORE.seq.usuario) STORE.seq.usuario = Math.max(1, ...STORE.usuarios.map(u=>u.id)) + 1; // compat
+STORE.usuarios.forEach(u=>{ if(!u.posicao) u.posicao = 'Sócio'; }); // compat
+function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(STORE)); }
+
+/* ================= HELPERS ================= */
+function fmtR$(n){ n = Number(n)||0; return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function fmtData(iso){ if(!iso) return '—'; const p = iso.split('-'); return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; }
+const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+function fmtRef(mes){ // mes no formato "AAAA-MM" (input type=month)
+  if(!mes) return '';
+  const p = mes.split('-'); if(p.length!==2) return mes;
+  const m = Number(p[1]);
+  return m>=1 && m<=12 ? `${MESES_ABREV[m-1]}/${p[0]}` : mes;
+}
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+function val(id){ return document.getElementById(id).value; }
+function setVal(id,v){ document.getElementById(id).value = v==null?'':v; }
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function toast(msg,type){
+  const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||'ok');
+  clearTimeout(window._toastTO); window._toastTO=setTimeout(()=>{t.className='';},2600);
+}
+function comById(id){ return STORE.comissionados.find(c=>c.id===id); }
+function negById(id){ return STORE.negocios.find(n=>n.id===id); }
+function recById(id){ return STORE.recebimentos.find(r=>r.id===id); }
+
+/* ================= LOGIN ================= */
+function doLogin(){
+  const email = val('l-email').trim().toLowerCase();
+  const senha = val('l-senha');
+  const u = STORE.usuarios.find(u=>u.email.toLowerCase()===email && u.senha===senha);
+  if(!u){ document.getElementById('login-err').style.display='block'; return; }
+  document.getElementById('login-err').style.display='none';
+  localStorage.setItem(SESSION_KEY, JSON.stringify({uid:u.id, nome:u.nome}));
+  showApp();
+}
+function doLogout(){
+  localStorage.removeItem(SESSION_KEY);
+  document.getElementById('app').style.display='none';
+  document.getElementById('screen-login').style.display='flex';
+  setVal('l-senha','');
+}
+function showApp(){
+  const sess = JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+  if(!sess) return;
+  document.getElementById('screen-login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('side-user-name').textContent = sess.nome;
+  renderAll();
+}
+(function initAuth(){
+  const sess = JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+  if(sess && STORE.usuarios.find(u=>u.id===sess.uid)) showApp();
+})();
+
+/* ================= NAV ================= */
+const VIEW_META = {
+  dashboard:{title:'Dashboard',sub:'Visão geral da operação',cta:'+ Novo negócio',ctaFn:()=>openNegocioModal()},
+  negocios:{title:'Negócios',sub:'Relacionamentos e clientes cadastrados',cta:'+ Novo negócio',ctaFn:()=>openNegocioModal()},
+  recebimentos:{title:'Recebimentos',sub:'Lançamentos vindos do banco',cta:'+ Lançar recebimento',ctaFn:()=>openRecebimentoModal()},
+  rede:{title:'Rede comercial',sub:'Quem participa da rede',cta:'+ Novo comissionado',ctaFn:()=>openComissionadoModal()},
+  pagamentos:{title:'Pagamentos',sub:'Repasses à rede comercial',cta:'',ctaFn:null},
+  extratos:{title:'Extratos',sub:'Extrato individual por comissionado',cta:'',ctaFn:null},
+  config:{title:'Configurações',sub:'Divisão da comissão recebida',cta:'',ctaFn:null},
+};
+function goView(v){
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active', el.dataset.view===v));
+  document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
+  document.getElementById('view-'+v).classList.add('active');
+  const m = VIEW_META[v];
+  document.getElementById('topbar-title').textContent = m.title;
+  document.getElementById('topbar-sub').textContent = m.sub;
+  const cta = document.getElementById('topbar-cta');
+  if(m.cta){ cta.style.display='inline-flex'; cta.textContent=m.cta; cta.onclick=m.ctaFn; }
+  else{ cta.style.display='none'; }
+  renderAll();
+}
+
+function renderAll(){
+  renderDashboard();
+  renderNegocios();
+  renderRecebimentos();
+  renderRede();
+  renderPagamentos();
+  fillExtratoSelect();
+  renderExtrato();
+  renderConfig();
+}
+
+/* ================= CONFIGURAÇÕES ================= */
+function renderConfig(){
+  const el = document.getElementById('cfg-agente-pct');
+  if(!el) return;
+  el.value = STORE.config.agentePct;
+  document.getElementById('cfg-imposto-pct').value = STORE.config.impostoPct;
+  updateConfigPreview();
+  renderUsuarios();
+}
+function renderUsuarios(){
+  const tb = document.querySelector('#tbl-usuarios tbody');
+  if(!tb) return;
+  const list = [...STORE.usuarios].sort((a,b)=>a.nome.localeCompare(b.nome));
+  tb.innerHTML = list.map(u=>`
+    <tr>
+      <td><b>${esc(u.nome)}</b></td>
+      <td>${esc(u.email)}</td>
+      <td><span class="badge ${u.posicao==='Sócio'?'green':u.posicao==='Operacional'?'gray':'blue'}">${esc(u.posicao)}</span></td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="openUsuarioModal(${u.id})" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteUsuario(${u.id})" title="Excluir">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+function openUsuarioModal(id){
+  document.getElementById('mu-titulo').textContent = id ? 'Editar usuário' : 'Novo usuário';
+  setVal('mu-id', id||'');
+  if(id){
+    const u = STORE.usuarios.find(u=>u.id===id);
+    setVal('mu-nome', u.nome); setVal('mu-email', u.email); setVal('mu-senha',''); setVal('mu-posicao', u.posicao||'Sócio');
+    document.getElementById('mu-senha-label').textContent = 'Nova senha';
+    document.getElementById('mu-senha-hint').textContent = 'Deixe em branco pra manter a senha atual.';
+  } else {
+    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-senha',''); setVal('mu-posicao','Sócio');
+    document.getElementById('mu-senha-label').textContent = 'Senha *';
+    document.getElementById('mu-senha-hint').textContent = '';
+  }
+  document.getElementById('modal-usuario').classList.add('open');
+}
+function saveUsuario(){
+  const nome = val('mu-nome').trim();
+  const email = val('mu-email').trim().toLowerCase();
+  const senha = val('mu-senha');
+  const posicao = val('mu-posicao');
+  const id = val('mu-id');
+  if(!nome || !email){ toast('Preencha nome e e-mail.','err'); return; }
+  const duplicado = STORE.usuarios.find(u=>u.email.toLowerCase()===email && String(u.id)!==id);
+  if(duplicado){ toast('Já existe um usuário com esse e-mail.','err'); return; }
+  if(id){
+    const u = STORE.usuarios.find(u=>u.id===Number(id));
+    u.nome = nome; u.email = email; u.posicao = posicao;
+    if(senha) u.senha = senha;
+    toast('Usuário atualizado.');
+  } else {
+    if(!senha || senha.length<4){ toast('Informe uma senha com pelo menos 4 caracteres.','err'); return; }
+    STORE.usuarios.push({ id: STORE.seq.usuario++, nome, email, senha, posicao });
+    toast('Usuário cadastrado.');
+  }
+  save(); closeModal('modal-usuario'); renderAll();
+}
+function deleteUsuario(id){
+  if(STORE.usuarios.length<=1){ toast('Precisa manter pelo menos um usuário com acesso.','err'); return; }
+  if(!confirm('Excluir este usuário? Ele perde o acesso ao sistema imediatamente.')) return;
+  STORE.usuarios = STORE.usuarios.filter(u=>u.id!==id); save(); renderAll();
+}
+function updateConfigPreview(){
+  const impostoPct = Number(document.getElementById('cfg-imposto-pct').value)||0;
+  const agentePct = Number(document.getElementById('cfg-agente-pct').value)||0;
+  const recebido = 1000;
+  const imposto = recebido*impostoPct/100;
+  const lucroBruto = recebido - imposto;
+  const agente = lucroBruto*agentePct/100;
+  const lucroLiquido = lucroBruto - agente;
+  document.getElementById('cfg-preview').textContent =
+    `Exemplo: em um recebimento de ${fmtR$(recebido)} — imposto: ${fmtR$(imposto)} — Lucro Bruto CBS: ${fmtR$(lucroBruto)}. O Agente Banco fica com ${fmtR$(agente)}; sobra o Lucro Líquido CBS de ${fmtR$(lucroLiquido)}, que é a base da comissão da rede.`;
+}
+document.addEventListener('input', e=>{ if(e.target && (e.target.id==='cfg-agente-pct'||e.target.id==='cfg-imposto-pct')) updateConfigPreview(); });
+function saveConfig(){
+  const pct = Number(document.getElementById('cfg-agente-pct').value);
+  const impostoPct = Number(document.getElementById('cfg-imposto-pct').value);
+  if(isNaN(pct) || pct<0 || pct>100){ toast('Informe um percentual entre 0 e 100 pro Agente Banco.','err'); return; }
+  if(isNaN(impostoPct) || impostoPct<0 || impostoPct>100){ toast('Informe um percentual de imposto entre 0 e 100.','err'); return; }
+  STORE.config.agentePct = pct; STORE.config.impostoPct = impostoPct;
+  save(); renderAll(); toast('Configuração salva.');
+}
+// recalcula imposto, Agente Banco e comissões de TODOS os recebimentos já salvos, usando a fórmula atual
+// (calcCascataRecebimento) — cada recebimento mantém o % de imposto/agente/comissionado que já tinha, só o VALOR é refeito.
+// Necessário sempre que a fórmula de cálculo mudar, pra não deixar lançamentos antigos com números de uma fórmula anterior.
+function recalcularRecebimentos(){
+  if(!STORE.recebimentos.length){ toast('Nenhum recebimento lançado ainda.','err'); return; }
+  if(!confirm(`Isso vai recalcular os ${STORE.recebimentos.length} recebimento(s) já lançados com a fórmula atual (mantendo os percentuais de cada um). O status de pagamento (Pago/Pendente) é preservado, mas o VALOR de cada comissão pode mudar. Continuar?`)) return;
+  STORE.recebimentos.forEach(r=>{
+    const impostoPct = r.percentualImposto!=null ? r.percentualImposto : STORE.config.impostoPct;
+    const agentePct = r.percentualAgente!=null ? r.percentualAgente : STORE.config.agentePct;
+    const c = calcCascataRecebimento(Number(r.valorRecebido||0), impostoPct, agentePct);
+    r.percentualImposto = impostoPct; r.valorImposto = c.valorImposto;
+    r.percentualAgente = agentePct; r.valorAgente = c.valorAgente;
+    r.valorLiquido = c.valorLiquido;
+    (r.splits||[]).forEach(s=>{ s.valor = c.valorLiquido * (Number(s.percentual)||0) / 100; });
+  });
+  save(); renderAll();
+  toast('Recebimentos recalculados com a fórmula atual.');
+}
+
+/* ================= CALC HELPERS ================= */
+// todos os splits (pagamentos) achatados, com metadados
+function allSplits(){
+  const out = [];
+  STORE.recebimentos.forEach(r=>{
+    const neg = negById(r.negocioId);
+    (r.splits||[]).forEach(s=>{
+      out.push({
+        recebimentoId:r.id, negocioId:r.negocioId, comissionadoId:s.comissionadoId,
+        percentual:s.percentual, valor:s.valor, statusPagamento:s.statusPagamento,
+        dataPagamento:s.dataPagamento, dataRecebimento:r.data, referencia:r.referencia,
+        valorRecebido:r.valorRecebido, empresa: neg?neg.empresaCliente:'—'
+      });
+    });
+  });
+  return out;
+}
+function totals(){
+  const splits = allSplits();
+  const negociosAtivos = STORE.negocios.filter(n=>n.status==='Ativo').length;
+  const totalRecebido = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorRecebido||0),0);
+  const totalImposto = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorImposto||0),0);
+  const totalAgente = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorAgente||0),0);
+  const lucroBrutoCBS = totalRecebido - totalImposto;
+  const totalLiquidoEmpresa = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorLiquido!=null?r.valorLiquido:r.valorRecebido),0); // Lucro Líquido CBS (já sem o Agente Banco)
+  const repassadoPago = splits.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0);
+  const repassadoPendente = splits.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0);
+  const saldoLiquido = totalLiquidoEmpresa - repassadoPago;
+  return {negociosAtivos, totalRecebido, totalImposto, totalAgente, lucroBrutoCBS, totalLiquidoEmpresa, repassadoPago, repassadoPendente, saldoLiquido};
+}
+// Lucro Sócio = o que sobra do Lucro Líquido CBS (que já é sem o Agente Banco) depois da comissão de toda a rede — dividido entre os sócios.
+function calcLucro(){
+  const t = totals();
+  const totalComissoesRede = t.repassadoPago + t.repassadoPendente;
+  const lucro = t.totalLiquidoEmpresa - totalComissoesRede;
+  const socios = STORE.usuarios.filter(u=>u.posicao==='Sócio');
+  const porSocio = socios.length ? lucro/socios.length : 0;
+  return {totalComissoesRede, lucro, socios, porSocio};
+}
+
+/* ================= DASHBOARD ================= */
+function renderDashboard(){
+  const t = totals();
+  const l = calcLucro();
+  const cards = [
+    {lbl:'Negócios ativos', val:t.negociosAtivos, cls:''},
+    {lbl:'Total recebido', val:fmtR$(t.totalRecebido), cls:'blue'},
+    {lbl:'Imposto retido', val:fmtR$(t.totalImposto), cls:'warn'},
+    {lbl:'Lucro bruto CBS', val:fmtR$(t.lucroBrutoCBS), cls:'blue'},
+    {lbl:'Agente banco', val:fmtR$(t.totalAgente), cls:''},
+    {lbl:'Lucro líquido CBS', val:fmtR$(t.totalLiquidoEmpresa), cls:'blue'},
+    {lbl:'Comissionamento rede', val:fmtR$(l.totalComissoesRede), cls:''},
+    {lbl:'Pagamentos realizados', val:fmtR$(t.repassadoPago), cls:'green'},
+    {lbl:'Pagamentos pendentes', val:fmtR$(t.repassadoPendente), cls:'warn'},
+    {lbl:'Lucro sócio', val:fmtR$(l.lucro), cls:'green'},
+  ];
+  document.getElementById('dash-cards').innerHTML = cards.map(c=>`
+    <div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>
+  `).join('');
+
+  document.getElementById('dash-lucro').innerHTML = `
+    <div class="tbl-wrap"><table><thead><tr><th>Sócio</th><th>Parte no Lucro Sócio</th></tr></thead><tbody>
+      ${l.socios.length ? l.socios.map(s=>`<tr><td>${esc(s.nome)}</td><td><b style="color:var(--accent)">${fmtR$(l.porSocio)}</b></td></tr>`).join('')
+        : `<tr class="empty-row"><td colspan="2">Nenhum usuário marcado como Sócio em Configurações.</td></tr>`}
+    </tbody></table></div>`;
+
+  const tb1 = document.querySelector('#dash-tbl-negocios tbody');
+  const recentes = [...STORE.negocios].sort((a,b)=>(b.dataCadastro||'').localeCompare(a.dataCadastro||'')).slice(0,6);
+  tb1.innerHTML = recentes.length ? recentes.map(n=>`
+    <tr>
+      <td><b>${esc(n.empresaCliente)}</b></td>
+      <td>${fmtData(n.data)}</td>
+      <td>${statusBadge(n.status)}</td>
+      <td>${(n.comissionados||[]).map(c=>esc(comById(c.comissionadoId)?.nome||'?')).join(', ')||'—'}</td>
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="4">Nenhum negócio cadastrado ainda.</td></tr>`;
+
+  const tb2 = document.querySelector('#dash-tbl-pendentes tbody');
+  const pendentes = allSplits().filter(s=>s.statusPagamento==='Pendente')
+    .sort((a,b)=>(a.dataRecebimento||'').localeCompare(b.dataRecebimento||'')).slice(0,8);
+  tb2.innerHTML = pendentes.length ? pendentes.map(s=>`
+    <tr>
+      <td>${esc(comById(s.comissionadoId)?.nome||'?')}</td>
+      <td>${esc(s.empresa)}</td>
+      <td>${fmtR$(s.valor)}</td>
+      <td>${fmtData(s.dataRecebimento)}</td>
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="4">Sem repasses pendentes.</td></tr>`;
+}
+
+function statusBadge(status){
+  const map = {'Ativo':'green','Encerrado':'gray','Cancelado':'red','Pendente':'warn','Pago':'green'};
+  return `<span class="badge ${map[status]||'gray'}">${status}</span>`;
+}
+
+/* ================= NEGOCIOS ================= */
+function renderNegocios(){
+  const busca = (document.getElementById('neg-busca')?.value||'').toLowerCase();
+  const filtro = document.getElementById('neg-filtro-status')?.value||'';
+  let list = [...STORE.negocios];
+  if(busca) list = list.filter(n=> (n.empresaCliente||'').toLowerCase().includes(busca));
+  if(filtro) list = list.filter(n=>n.status===filtro);
+  list.sort((a,b)=>(b.dataCadastro||'').localeCompare(a.dataCadastro||''));
+
+  const tb = document.querySelector('#tbl-negocios tbody');
+  tb.innerHTML = list.length ? list.map(n=>`
+    <tr>
+      <td class="name-cell"><b>${esc(n.empresaCliente)}</b>${n.cnpj?`<small>${esc(n.cnpj)}</small>`:''}</td>
+      <td>${fmtData(n.data)}</td>
+      <td>${statusBadge(n.status)}</td>
+      <td>${(n.comissionados||[]).map(c=>`${esc(comById(c.comissionadoId)?.nome||'?')} (${c.percentual}%)${c.principal?' ★':''}`).join(', ')||'—'}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="openNegocioModal(${n.id})" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteNegocio(${n.id})" title="Excluir">🗑</button>
+      </div></td>
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="5">Nenhum negócio encontrado.</td></tr>`;
+}
+
+let mnSplitRows = []; // {comissionadoId, percentual, principal}
+function addSplitRow(pref){
+  mnSplitRows.push(pref || {comissionadoId:'', percentual:'', principal: mnSplitRows.length===0});
+  renderSplitBox();
+}
+function removeSplitRow(idx){ mnSplitRows.splice(idx,1); renderSplitBox(); }
+function renderSplitBox(){
+  const box = document.getElementById('mn-split-box');
+  if(!mnSplitRows.length){
+    box.innerHTML = `<div style="font-size:12.5px;color:var(--text-faint)">Nenhum comissionado adicionado ainda.</div>`;
+  } else {
+    box.innerHTML = mnSplitRows.map((r,i)=>`
+      <div class="split-row">
+        <select onchange="mnSplitRows[${i}].comissionadoId=Number(this.value)">
+          <option value="">Selecione...</option>
+          ${STORE.comissionados.map(c=>`<option value="${c.id}" ${r.comissionadoId===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}
+        </select>
+        <input type="number" step="0.01" placeholder="%" value="${r.percentual}" oninput="mnSplitRows[${i}].percentual=this.value; updateSplitTotal()">
+        <label class="chk"><input type="checkbox" ${r.principal?'checked':''} onchange="mnSplitRows[${i}].principal=this.checked"> Originador</label>
+        <button class="icon-btn" onclick="removeSplitRow(${i})">🗑</button>
+      </div>`).join('');
+  }
+  updateSplitTotal();
+}
+function updateSplitTotal(){
+  const t = mnSplitRows.reduce((a,r)=>a+(Number(r.percentual)||0),0);
+  const el = document.getElementById('mn-split-total');
+  el.textContent = t.toFixed(2).replace(/\.00$/,'')+'%';
+  el.style.color = t>100 ? '#fca5a5' : (t===100?'#10b981':'');
+}
+
+function openNegocioModal(id){
+  document.getElementById('mn-titulo').textContent = id ? 'Editar negócio' : 'Novo negócio';
+  setVal('mn-id', id||'');
+  if(id){
+    const n = negById(id);
+    setVal('mn-empresa', n.empresaCliente); setVal('mn-cnpj', n.cnpj);
+    setVal('mn-data', n.data); setVal('mn-status', n.status); setVal('mn-obs', n.observacoes);
+    mnSplitRows = (n.comissionados||[]).map(c=>({...c}));
+  } else {
+    ['mn-empresa','mn-cnpj','mn-obs'].forEach(id=>setVal(id,''));
+    setVal('mn-data', todayISO()); setVal('mn-status','Ativo');
+    mnSplitRows = [];
+  }
+  if(!STORE.comissionados.length){
+    toast('Cadastre ao menos um comissionado na aba Rede antes de montar a divisão.', 'err');
+  }
+  renderSplitBox();
+  document.getElementById('modal-negocio').classList.add('open');
+}
+function saveNegocio(){
+  const empresa = val('mn-empresa').trim();
+  if(!empresa){ toast('Preencha a empresa cliente.','err'); return; }
+  const splits = mnSplitRows.filter(r=>r.comissionadoId).map(r=>({
+    comissionadoId:Number(r.comissionadoId), percentual:Number(r.percentual)||0, principal:!!r.principal
+  }));
+  const id = val('mn-id');
+  const payload = {
+    empresaCliente: empresa, cnpj: val('mn-cnpj').trim(),
+    data: val('mn-data'), status: val('mn-status'), observacoes: val('mn-obs').trim(), comissionados: splits
+  };
+  if(id){
+    Object.assign(negById(Number(id)), payload);
+    toast('Negócio atualizado.');
+  } else {
+    payload.id = STORE.seq.negocio++; payload.dataCadastro = new Date().toISOString();
+    STORE.negocios.push(payload);
+    toast('Negócio cadastrado.');
+  }
+  save(); closeModal('modal-negocio'); renderAll();
+}
+function deleteNegocio(id){
+  const temRec = STORE.recebimentos.some(r=>r.negocioId===id);
+  if(temRec){ toast('Não é possível excluir: existem recebimentos vinculados a este negócio.','err'); return; }
+  if(!confirm('Excluir este negócio?')) return;
+  STORE.negocios = STORE.negocios.filter(n=>n.id!==id); save(); renderAll();
+}
+
+/* ================= REDE (COMISSIONADOS) ================= */
+// sobe a cadeia de indicação até o topo (com proteção contra ciclo)
+function cadeiaIndicacao(c){
+  const cadeia = []; let atual = c, guard = 0;
+  while(atual && atual.indicadoPor && guard++ < 20){
+    const pai = comById(atual.indicadoPor);
+    if(!pai || cadeia.includes(pai)) break;
+    cadeia.push(pai); atual = pai;
+  }
+  return cadeia;
+}
+function renderRede(){
+  const tb = document.querySelector('#tbl-rede tbody');
+  const list = [...STORE.comissionados].sort((a,b)=>a.nome.localeCompare(b.nome));
+  const splits = allSplits();
+  tb.innerHTML = list.length ? list.map(c=>{
+    const meus = splits.filter(s=>s.comissionadoId===c.id);
+    const negs = new Set(meus.map(s=>s.negocioId)).size;
+    const recebido = meus.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0);
+    const pendente = meus.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0);
+    const cadeia = cadeiaIndicacao(c);
+    const indicados = STORE.comissionados.filter(x=>x.indicadoPor===c.id);
+    return `<tr>
+      <td class="name-cell"><b>${esc(c.nome)}</b>${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}</td>
+      <td>${esc(c.telefone||c.email||'—')}</td>
+      <td>${statusBadge(c.status)}</td>
+      <td>${negs}</td>
+      <td>${fmtR$(recebido)}</td>
+      <td>${fmtR$(pendente)}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="openComissionadoModal(${c.id})" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteComissionado(${c.id})" title="Excluir">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="7">Nenhum comissionado cadastrado.</td></tr>`;
+}
+function fillIndicadoSelect(excludeId){
+  const sel = document.getElementById('mc-indicado');
+  sel.innerHTML = `<option value="">Nenhum (entrou por conta própria)</option>` +
+    STORE.comissionados.filter(c=>c.id!==excludeId).map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+}
+function openComissionadoModal(id){
+  document.getElementById('mc-titulo').textContent = id ? 'Editar comissionado' : 'Novo comissionado';
+  setVal('mc-id', id||'');
+  fillIndicadoSelect(id||null);
+  if(id){
+    const c = comById(id);
+    setVal('mc-nome',c.nome); setVal('mc-tel',c.telefone); setVal('mc-email',c.email);
+    setVal('mc-pix',c.pix); setVal('mc-status',c.status); setVal('mc-obs',c.observacoes);
+    setVal('mc-indicado', c.indicadoPor||'');
+  } else {
+    ['mc-nome','mc-tel','mc-email','mc-pix','mc-obs'].forEach(id=>setVal(id,''));
+    setVal('mc-status','Ativo'); setVal('mc-indicado','');
+  }
+  document.getElementById('modal-comissionado').classList.add('open');
+}
+function saveComissionado(){
+  const nome = val('mc-nome').trim();
+  if(!nome){ toast('Informe o nome.','err'); return; }
+  const id = val('mc-id');
+  const indicadoPor = val('mc-indicado') ? Number(val('mc-indicado')) : null;
+  if(id && indicadoPor){
+    let atual = comById(indicadoPor), guard=0;
+    while(atual && guard++<20){
+      if(atual.id===Number(id)){ toast('Esse vínculo criaria um ciclo (uma pessoa indicando a si mesma indiretamente).','err'); return; }
+      atual = atual.indicadoPor ? comById(atual.indicadoPor) : null;
+    }
+  }
+  const payload = { nome, telefone: val('mc-tel').trim(), email: val('mc-email').trim(), pix: val('mc-pix').trim(),
+    status: val('mc-status'), observacoes: val('mc-obs').trim(), indicadoPor };
+  if(id){ Object.assign(comById(Number(id)), payload); toast('Comissionado atualizado.'); }
+  else{ payload.id = STORE.seq.comissionado++; payload.dataCadastro = new Date().toISOString(); STORE.comissionados.push(payload); toast('Comissionado cadastrado.'); }
+  save(); closeModal('modal-comissionado'); renderAll();
+}
+function deleteComissionado(id){
+  const emUso = STORE.negocios.some(n=>(n.comissionados||[]).some(c=>c.comissionadoId===id));
+  if(emUso){ toast('Não é possível excluir: comissionado vinculado a negócios.','err'); return; }
+  if(!confirm('Excluir este comissionado?')) return;
+  STORE.comissionados.forEach(c=>{ if(c.indicadoPor===id) c.indicadoPor=null; });
+  STORE.comissionados = STORE.comissionados.filter(c=>c.id!==id); save(); renderAll();
+}
+
+/* ================= RECEBIMENTOS ================= */
+function renderRecebimentos(){
+  const tb = document.querySelector('#tbl-recebimentos tbody');
+  const list = [...STORE.recebimentos].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  tb.innerHTML = list.length ? list.map(r=>{
+    const n = negById(r.negocioId);
+    const repasse = (r.splits||[]).reduce((a,s)=>a+Number(s.valor||0),0);
+    return `<tr>
+      <td>${fmtData(r.data)}</td>
+      <td>${esc(n?n.empresaCliente:'—')}</td>
+      <td>${esc(fmtRef(r.referencia))||'—'}</td>
+      <td>${fmtR$(r.valorRecebido)}</td>
+      <td>${fmtR$(r.valorAgente)}</td>
+      <td>${fmtR$(repasse)}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="openRecebimentoModal(${r.id})" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteRecebimento(${r.id})" title="Excluir">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="7">Nenhum recebimento lançado ainda.</td></tr>`;
+}
+
+let mrSplitRows = [];
+function fillNegocioSelect(){
+  const sel = document.getElementById('mr-negocio');
+  sel.innerHTML = `<option value="">Selecione o negócio...</option>` +
+    STORE.negocios.filter(n=>n.status!=='Cancelado').map(n=>`<option value="${n.id}">${esc(n.empresaCliente)}</option>`).join('');
+}
+// monta as linhas de split sempre a partir do % ATUAL do negócio (fonte única de verdade — não dá pra editar % aqui no Recebimento).
+// Preserva status/data de pagamento já lançados pra quem já estava no split (comparando por comissionadoId).
+function buildSplitRowsFromNegocio(negocioId, existingSplits){
+  const n = negById(negocioId);
+  if(!n) return [];
+  return (n.comissionados||[]).map(c=>{
+    const prev = (existingSplits||[]).find(s=>s.comissionadoId===c.comissionadoId);
+    return { comissionadoId:c.comissionadoId, percentual:c.percentual,
+      statusPagamento: prev ? prev.statusPagamento : 'Pendente', dataPagamento: prev ? prev.dataPagamento : null };
+  });
+}
+function onRecebimentoNegocioChange(){
+  const negId = Number(val('mr-negocio'));
+  mrSplitRows = buildSplitRowsFromNegocio(negId, mrSplitRows);
+  renderRecebimentoSplitPreview();
+}
+// cascata (conferida na planilha do usuário): Recebido -> Imposto -> Lucro Bruto CBS.
+// Do Lucro Bruto CBS, o Agente Banco fica com sua fatia (ex: 50%) e o restante é o Lucro Líquido CBS (a outra fatia).
+// A comissão da rede é um % calculado SOBRE O LUCRO LÍQUIDO CBS (não sobre o Lucro Bruto).
+function calcCascataRecebimento(valorRecebido, impostoPct, agentePct){
+  const valorImposto = valorRecebido * impostoPct / 100;
+  const lucroBrutoCBS = valorRecebido - valorImposto;
+  const valorAgente = lucroBrutoCBS * agentePct / 100;
+  const valorLiquido = lucroBrutoCBS - valorAgente; // Lucro Líquido CBS
+  return { valorImposto, lucroBrutoCBS, valorAgente, valorLiquido };
+}
+function renderRecebimentoSplitPreview(){
+  const box = document.getElementById('mr-split-preview');
+  const valorTotal = Number(val('mr-valor'))||0;
+  const impostoPct = Number(val('mr-imposto-pct'))||0;
+  const agentePct = Number(val('mr-agente-pct'))||0;
+  const c = calcCascataRecebimento(valorTotal, impostoPct, agentePct);
+  const resumo = `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+    Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto CBS: <b>${fmtR$(c.lucroBrutoCBS)}</b> — Agente Banco (${agentePct||0}%): <b>${fmtR$(c.valorAgente)}</b> — Lucro Líquido CBS: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
+    <div style="margin-top:4px;color:var(--text-faint)">A comissão da rede abaixo é calculada sobre o Lucro Líquido CBS.</div>
+  </div>`;
+  if(!mrSplitRows.length){
+    box.innerHTML = resumo + `<div style="font-size:12.5px;color:var(--text-faint)">Selecione um negócio com comissionados configurados.</div>`;
+    return;
+  }
+  box.innerHTML = resumo + mrSplitRows.map((r)=>{
+    const calc = c.valorLiquido * (Number(r.percentual)||0) / 100;
+    return `<div class="split-row">
+      <div style="flex:1 1 140px;font-size:13px;padding:8px 0">${esc(comById(r.comissionadoId)?.nome||'?')}</div>
+      <div style="flex:0 0 70px;font-size:13px;padding:8px 0;color:var(--text-dim)">${r.percentual}%</div>
+      <div style="flex:0 0 110px;font-size:13px;padding:8px 0;text-align:right;color:var(--accent);font-weight:700">${fmtR$(calc)}</div>
+    </div>`;
+  }).join('') + `<div class="split-sum" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Total repassado à rede: <b>${fmtR$(mrSplitRows.reduce((a,r)=>a+c.valorLiquido*(Number(r.percentual)||0)/100,0))}</b> de ${fmtR$(c.valorLiquido)}</span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="editarPercentuaisDoNegocio()">✎ Editar % no negócio</button>
+    </div>`;
+}
+function editarPercentuaisDoNegocio(){
+  const negId = Number(val('mr-negocio'));
+  if(!negId){ toast('Selecione um negócio primeiro.','err'); return; }
+  closeModal('modal-recebimento');
+  openNegocioModal(negId);
+}
+function openRecebimentoModal(id){
+  fillNegocioSelect();
+  document.getElementById('mr-titulo').textContent = id ? 'Editar recebimento' : 'Lançar recebimento';
+  setVal('mr-id', id||'');
+  if(id){
+    const r = recById(id);
+    setVal('mr-negocio', r.negocioId); setVal('mr-data', r.data); setVal('mr-ref', r.referencia); setVal('mr-valor', r.valorRecebido);
+    setVal('mr-imposto-pct', r.percentualImposto!=null ? r.percentualImposto : STORE.config.impostoPct);
+    setVal('mr-agente-pct', r.percentualAgente!=null ? r.percentualAgente : STORE.config.agentePct); setVal('mr-obs', r.observacoes);
+    mrSplitRows = buildSplitRowsFromNegocio(r.negocioId, r.splits);
+  } else {
+    setVal('mr-negocio',''); setVal('mr-data', todayISO()); setVal('mr-ref',''); setVal('mr-valor','');
+    setVal('mr-imposto-pct', STORE.config.impostoPct); setVal('mr-agente-pct', STORE.config.agentePct); setVal('mr-obs','');
+    mrSplitRows = [];
+  }
+  renderRecebimentoSplitPreview();
+  document.getElementById('modal-recebimento').classList.add('open');
+}
+function saveRecebimento(){
+  const negocioId = Number(val('mr-negocio'));
+  const data = val('mr-data');
+  const valorRecebido = Number(val('mr-valor'));
+  const percentualImposto = Number(val('mr-imposto-pct'))||0;
+  const percentualAgente = Number(val('mr-agente-pct'))||0;
+  if(!negocioId){ toast('Selecione o negócio.','err'); return; }
+  if(!data){ toast('Informe a data.','err'); return; }
+  if(!valorRecebido || valorRecebido<=0){ toast('Informe o valor recebido.','err'); return; }
+  const id = val('mr-id');
+  const c = calcCascataRecebimento(valorRecebido, percentualImposto, percentualAgente);
+  const splits = mrSplitRows.map(r=>({
+    comissionadoId:r.comissionadoId, percentual:Number(r.percentual)||0,
+    valor: c.valorLiquido*(Number(r.percentual)||0)/100,
+    statusPagamento: r.statusPagamento || 'Pendente', dataPagamento: r.dataPagamento || null
+  }));
+  const payload = { negocioId, data, referencia: val('mr-ref').trim(), valorRecebido,
+    percentualImposto, valorImposto: c.valorImposto,
+    percentualAgente, valorAgente: c.valorAgente, valorLiquido: c.valorLiquido,
+    observacoes: val('mr-obs').trim(), splits };
+  if(id){ Object.assign(recById(Number(id)), payload); toast('Recebimento atualizado.'); }
+  else{ payload.id = STORE.seq.recebimento++; payload.dataCadastro = new Date().toISOString(); STORE.recebimentos.push(payload); toast('Recebimento lançado e dividido entre a rede.'); }
+  save(); closeModal('modal-recebimento'); renderAll();
+}
+function deleteRecebimento(id){
+  if(!confirm('Excluir este recebimento? Os repasses vinculados também serão removidos.')) return;
+  STORE.recebimentos = STORE.recebimentos.filter(r=>r.id!==id); save(); renderAll();
+}
+
+/* ================= PAGAMENTOS ================= */
+function renderPagamentos(){
+  const filtro = document.getElementById('pag-filtro')?.value ?? 'Pendente';
+  let splits = allSplits();
+  if(filtro) splits = splits.filter(s=>s.statusPagamento===filtro);
+  splits.sort((a,b)=>(a.dataRecebimento||'').localeCompare(b.dataRecebimento||''));
+  const tb = document.querySelector('#tbl-pagamentos tbody');
+  tb.innerHTML = splits.length ? splits.map(s=>`
+    <tr>
+      <td>${esc(comById(s.comissionadoId)?.nome||'?')}</td>
+      <td>${esc(s.empresa)}</td>
+      <td>${fmtData(s.dataRecebimento)}${s.referencia?` <small style="color:var(--text-faint)">(${esc(fmtRef(s.referencia))})</small>`:''}</td>
+      <td>${fmtR$(s.valor)}</td>
+      <td>${statusBadge(s.statusPagamento)}</td>
+      <td>${s.dataPagamento?fmtData(s.dataPagamento):'—'}</td>
+      <td>${s.statusPagamento==='Pendente'
+        ? `<button class="btn btn-primary btn-sm" onclick="openPagarModal(${s.recebimentoId},${s.comissionadoId})">Marcar pago</button>`
+        : `<button class="btn btn-ghost btn-sm" onclick="revertPagamento(${s.recebimentoId},${s.comissionadoId})">Reverter</button>`}</td>
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="7">Nenhum item encontrado para este filtro.</td></tr>`;
+}
+function openPagarModal(recId, comId){
+  setVal('mp-recid', recId); setVal('mp-comid', comId); setVal('mp-data', todayISO());
+  const r = recById(recId); const s = (r.splits||[]).find(x=>x.comissionadoId===comId);
+  document.getElementById('mp-desc').textContent = `${comById(comId)?.nome||'?'} — ${fmtR$(s?s.valor:0)} referente a ${negById(r.negocioId)?.empresaCliente||''}`;
+  document.getElementById('modal-pagar').classList.add('open');
+}
+function confirmPagamento(){
+  const recId = Number(val('mp-recid')), comId = Number(val('mp-comid'));
+  const r = recById(recId); const s = (r.splits||[]).find(x=>x.comissionadoId===comId);
+  if(s){ s.statusPagamento='Pago'; s.dataPagamento=val('mp-data'); save(); toast('Pagamento confirmado.'); }
+  closeModal('modal-pagar'); renderAll();
+}
+function revertPagamento(recId, comId){
+  const r = recById(recId); const s = (r.splits||[]).find(x=>x.comissionadoId===comId);
+  if(s){ s.statusPagamento='Pendente'; s.dataPagamento=null; save(); renderAll(); toast('Pagamento revertido.'); }
+}
+
+/* ================= EXTRATOS ================= */
+function fillExtratoSelect(){
+  const sel = document.getElementById('ext-pessoa');
+  const cur = sel.value;
+  const socios = STORE.usuarios.filter(u=>u.posicao==='Sócio');
+  let html = `<option value="">Selecione uma pessoa...</option>`;
+  if(socios.length) html += `<optgroup label="Sócios">${socios.map(u=>`<option value="socio-${u.id}">${esc(u.nome)}</option>`).join('')}</optgroup>`;
+  if(STORE.comissionados.length) html += `<optgroup label="Rede comercial">${STORE.comissionados.map(c=>`<option value="com-${c.id}">${esc(c.nome)}</option>`).join('')}</optgroup>`;
+  sel.innerHTML = html;
+  if(cur) sel.value = cur;
+}
+// monta as linhas do extrato de comissionado — reaproveitado na tela e na impressão
+function extratoComissionadoRows(comId, de, ate){
+  let splits = allSplits().filter(s=>s.comissionadoId===comId);
+  if(de) splits = splits.filter(s=>(s.dataRecebimento||'') >= de);
+  if(ate) splits = splits.filter(s=>(s.dataRecebimento||'') <= ate);
+  splits.sort((a,b)=>(a.dataRecebimento||'').localeCompare(b.dataRecebimento||''));
+  return splits;
+}
+// monta as linhas do extrato de lucro do sócio (recebimento a recebimento) — reaproveitado na tela e na impressão
+function extratoSocioRows(de, ate){
+  let recs = [...STORE.recebimentos];
+  if(de) recs = recs.filter(r=>(r.data||'') >= de);
+  if(ate) recs = recs.filter(r=>(r.data||'') <= ate);
+  recs.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  return recs.map(r=>{
+    const neg = negById(r.negocioId);
+    const liquido = r.valorLiquido!=null ? r.valorLiquido : r.valorRecebido; // Lucro Líquido CBS (já sem o Agente Banco)
+    const rede = (r.splits||[]).reduce((a,s)=>a+Number(s.valor||0),0);
+    // Lucro Sócio = Lucro Líquido CBS menos as comissões da rede
+    return { data:r.data, empresa: neg?neg.empresaCliente:'—', referencia:r.referencia,
+      recebido: Number(r.valorRecebido||0), imposto: Number(r.valorImposto||0), liquido, rede, sobra: liquido-rede };
+  });
+}
+function renderExtrato(){
+  const raw = document.getElementById('ext-pessoa').value;
+  const de = document.getElementById('ext-de').value;
+  const ate = document.getElementById('ext-ate').value;
+  const cardsEl = document.getElementById('ext-cards');
+  const head = document.getElementById('tbl-extrato-head');
+  const tb = document.querySelector('#tbl-extrato tbody');
+  cardsEl.innerHTML=''; head.innerHTML='';
+  if(!raw){ tb.innerHTML = `<tr class="empty-row"><td>Selecione uma pessoa pra ver o extrato.</td></tr>`; return; }
+  const [tipo, idStr] = raw.split('-'); const id = Number(idStr);
+
+  if(tipo==='socio'){
+    const rows = extratoSocioRows(de, ate);
+    const totalRecebido = rows.reduce((a,r)=>a+r.recebido,0);
+    const totalImposto = rows.reduce((a,r)=>a+r.imposto,0);
+    const totalLucro = rows.reduce((a,r)=>a+r.sobra,0);
+    const nSocios = STORE.usuarios.filter(u=>u.posicao==='Sócio').length || 1;
+    const porSocio = totalLucro/nSocios;
+    cardsEl.innerHTML = `
+      <div class="stat-card"><div class="lbl">Total recebido no período</div><div class="val blue">${fmtR$(totalRecebido)}</div></div>
+      <div class="stat-card"><div class="lbl">Imposto retido</div><div class="val warn">${fmtR$(totalImposto)}</div></div>
+      <div class="stat-card"><div class="lbl">Lucro Sócio no período</div><div class="val">${fmtR$(totalLucro)}</div></div>
+      <div class="stat-card"><div class="lbl">Sua parte (÷ ${nSocios} sócio${nSocios>1?'s':''})</div><div class="val green">${fmtR$(porSocio)}</div></div>`;
+    head.innerHTML = `<tr><th>Data</th><th>Empresa</th><th>Referência</th><th>Recebido</th><th>Imposto</th><th>Lucro Líquido CBS</th><th>Comissionamento rede</th><th>Lucro Sócio</th></tr>`;
+    tb.innerHTML = rows.length ? rows.map(r=>`
+      <tr>
+        <td>${fmtData(r.data)}</td>
+        <td>${esc(r.empresa)}</td>
+        <td>${esc(fmtRef(r.referencia))||'—'}</td>
+        <td>${fmtR$(r.recebido)}</td>
+        <td>${fmtR$(r.imposto)}</td>
+        <td>${fmtR$(r.liquido)}</td>
+        <td>${fmtR$(r.rede)}</td>
+        <td><b>${fmtR$(r.sobra)}</b></td>
+      </tr>`).join('') : `<tr class="empty-row"><td colspan="8">Nenhum recebimento no período.</td></tr>`;
+    return;
+  }
+
+  const splits = extratoComissionadoRows(id, de, ate);
+  const totalGeral = splits.reduce((a,s)=>a+Number(s.valor||0),0);
+  const totalPago = splits.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0);
+  const totalPendente = splits.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0);
+  cardsEl.innerHTML = `
+    <div class="stat-card"><div class="lbl">Total no período</div><div class="val">${fmtR$(totalGeral)}</div></div>
+    <div class="stat-card"><div class="lbl">Já pago</div><div class="val green">${fmtR$(totalPago)}</div></div>
+    <div class="stat-card"><div class="lbl">Pendente</div><div class="val warn">${fmtR$(totalPendente)}</div></div>`;
+  head.innerHTML = `<tr><th>Data</th><th>Empresa</th><th>Referência</th><th>Recebido (total)</th><th>% </th><th>Valor comissionado</th><th>Status</th></tr>`;
+  tb.innerHTML = splits.length ? splits.map(s=>`
+    <tr>
+      <td>${fmtData(s.dataRecebimento)}</td>
+      <td>${esc(s.empresa)}</td>
+      <td>${esc(fmtRef(s.referencia))||'—'}</td>
+      <td>${fmtR$(s.valorRecebido)}</td>
+      <td>${s.percentual}%</td>
+      <td><b>${fmtR$(s.valor)}</b></td>
+      <td>${statusBadge(s.statusPagamento)}</td>
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="7">Nenhum lançamento no período.</td></tr>`;
+}
+function printExtrato(){
+  const raw = document.getElementById('ext-pessoa').value;
+  if(!raw){ toast('Selecione uma pessoa.','err'); return; }
+  const [tipo, idStr] = raw.split('-'); const id = Number(idStr);
+  const de = document.getElementById('ext-de').value, ate = document.getElementById('ext-ate').value;
+  document.getElementById('pa-periodo').textContent = `Período: ${de?fmtData(de):'início'} até ${ate?fmtData(ate):'hoje'} — gerado em ${fmtData(todayISO())}`;
+
+  if(tipo==='socio'){
+    const u = STORE.usuarios.find(u=>u.id===id);
+    const rows = extratoSocioRows(de, ate);
+    const totalRecebido = rows.reduce((a,r)=>a+r.recebido,0);
+    const totalImposto = rows.reduce((a,r)=>a+r.imposto,0);
+    const totalLucro = rows.reduce((a,r)=>a+r.sobra,0);
+    const nSocios = STORE.usuarios.filter(u=>u.posicao==='Sócio').length || 1;
+    const porSocio = totalLucro/nSocios;
+    document.getElementById('pa-nome').textContent = 'Extrato de lucro — ' + (u?u.nome:'');
+    document.getElementById('pa-thead').innerHTML = `<tr>
+      <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Data</th>
+      <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Empresa</th>
+      <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Recebido</th>
+      <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Imposto</th>
+      <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Comissão rede</th>
+      <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Lucro Sócio</th>
+    </tr>`;
+    document.getElementById('pa-tbody').innerHTML = rows.map(r=>`
+      <tr>
+        <td style="padding:6px">${fmtData(r.data)}</td>
+        <td style="padding:6px">${esc(r.empresa)}</td>
+        <td style="padding:6px;text-align:right">${fmtR$(r.recebido)}</td>
+        <td style="padding:6px;text-align:right">${fmtR$(r.imposto)}</td>
+        <td style="padding:6px;text-align:right">${fmtR$(r.rede)}</td>
+        <td style="padding:6px;text-align:right">${fmtR$(r.sobra)}</td>
+      </tr>`).join('');
+    document.getElementById('pa-totais').innerHTML = `
+      Total recebido: <b>${fmtR$(totalRecebido)}</b> — Imposto retido: <b>${fmtR$(totalImposto)}</b><br>
+      Lucro Sócio no período: <b>${fmtR$(totalLucro)}</b> — Parte de ${esc(u?u.nome:'')} (÷${nSocios}): <b>${fmtR$(porSocio)}</b>`;
+    window.print();
+    return;
+  }
+
+  const splits = extratoComissionadoRows(id, de, ate);
+  document.getElementById('pa-nome').textContent = 'Extrato — ' + (comById(id)?.nome||'');
+  document.getElementById('pa-thead').innerHTML = `<tr>
+    <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Data</th>
+    <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Empresa</th>
+    <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Valor</th>
+    <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Status</th>
+  </tr>`;
+  document.getElementById('pa-tbody').innerHTML = splits.map(s=>`
+    <tr>
+      <td style="padding:6px">${fmtData(s.dataRecebimento)}</td>
+      <td style="padding:6px">${esc(s.empresa)}</td>
+      <td style="padding:6px;text-align:right">${fmtR$(s.valor)}</td>
+      <td style="padding:6px">${s.statusPagamento}</td>
+    </tr>`).join('');
+  const total = splits.reduce((a,s)=>a+Number(s.valor||0),0);
+  document.getElementById('pa-totais').innerHTML = `<b>Total: ${fmtR$(total)}</b>`;
+  window.print();
+}
+
+/* ================= MODAL GENERIC ================= */
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(ov=>{
+  ov.addEventListener('click', e=>{ if(e.target===ov) ov.classList.remove('open'); });
+});
+// evita que o scroll do mouse altere valores de campos numéricos (risco em lançamentos financeiros)
+document.addEventListener('wheel', e=>{
+  if(document.activeElement && document.activeElement.tagName==='INPUT' && document.activeElement.type==='number'){
+    document.activeElement.blur();
+  }
+}, {passive:true});
+</script>
+</body>
+</html>
