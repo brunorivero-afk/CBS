@@ -26,6 +26,7 @@ body{
 ::-webkit-scrollbar-track{background:transparent;}
 input,select,textarea,button{font-family:inherit;color:inherit;}
 button{cursor:pointer;}
+button:disabled{opacity:.5;cursor:not-allowed;}
 a{color:inherit;}
 
 /* ---------- LOGIN ---------- */
@@ -51,6 +52,7 @@ a{color:inherit;}
   width:100%; background:var(--card); border:1px solid var(--border); border-radius:9px;
   padding:11px 12px; font-size:14px; color:var(--text); outline:none; transition:border-color .15s;
 }
+.field input:disabled{opacity:.55;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);}
 .field textarea{resize:vertical;min-height:60px;}
 .btn{
@@ -230,7 +232,7 @@ tbody tr:hover{background:var(--card);}
       <label>Senha</label>
       <input type="password" id="l-senha" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-    <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
+    <button class="btn btn-primary" id="btn-login" onclick="doLogin()">Entrar</button>
   </div>
 </div>
 
@@ -398,9 +400,9 @@ tbody tr:hover{background:var(--card);}
         <div class="panel" style="max-width:520px">
           <div class="panel-head"><h3>Manutenção</h3></div>
           <p class="field-hint" style="margin-bottom:14px">
-            Cada recebimento guarda os valores já calculados no momento do lançamento. Se a fórmula mudar depois, recebimentos antigos continuam com os números de quando foram salvos — os totais do Dashboard podem ficar inconsistentes (inclusive negativos) se você tiver recebimentos calculados com fórmulas diferentes. Use o botão abaixo pra recalcular todos os recebimentos já lançados com a fórmula atual (usando o % de imposto e Agente Banco que cada um já tinha, e o % de cada comissionado).
+            Cada recebimento guarda os valores já calculados no momento do lançamento. Se a fórmula mudar depois, recebimentos antigos continuam com os números de quando foram salvos. Use o botão abaixo pra recalcular com a fórmula atual — recebimentos que já têm algum repasse marcado como <b>Pago</b> são pulados automaticamente, pra nunca alterar um valor que já foi de fato pago.
           </p>
-          <button class="btn btn-ghost btn-sm" onclick="recalcularRecebimentos()">🔄 Recalcular todos os recebimentos</button>
+          <button class="btn btn-ghost btn-sm" onclick="recalcularRecebimentos()">🔄 Recalcular recebimentos (sem repasses pagos)</button>
         </div>
 
         <div class="panel" style="max-width:520px">
@@ -408,7 +410,7 @@ tbody tr:hover{background:var(--card);}
             <h3>Usuários com acesso</h3>
             <button class="btn btn-primary btn-sm" onclick="openUsuarioModal()">+ Novo usuário</button>
           </div>
-          <p class="field-hint" style="margin-bottom:14px">Login e senha de quem pode entrar no sistema — pensado pros sócios.</p>
+          <p class="field-hint" style="margin-bottom:14px">Login e senha agora são de verdade, gerenciados pelo Supabase (Authentication). Aqui você só libera QUAIS e-mails têm acesso ao CBS e a posição de cada um — a conta de login em si (senha etc.) é criada separadamente no painel do Supabase.</p>
           <div class="tbl-wrap"><table id="tbl-usuarios"><thead><tr>
             <th>Nome</th><th>E-mail</th><th>Posição</th><th></th>
           </tr></thead><tbody></tbody></table></div>
@@ -457,7 +459,7 @@ tbody tr:hover{background:var(--card);}
 
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-negocio')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveNegocio()">Salvar negócio</button>
+      <button class="btn btn-primary" id="btn-save-negocio" onclick="saveNegocio()">Salvar negócio</button>
     </div>
   </div>
 </div>
@@ -493,16 +495,17 @@ tbody tr:hover{background:var(--card);}
 <div class="modal-overlay" id="modal-usuario">
   <div class="modal">
     <div class="modal-head"><h3 id="mu-titulo">Novo usuário</h3><button class="modal-close" onclick="closeModal('modal-usuario')">✕</button></div>
-    <input type="hidden" id="mu-id">
+    <input type="hidden" id="mu-original-email">
     <div class="field"><label>Nome *</label><input type="text" id="mu-nome"></div>
-    <div class="field"><label>E-mail *</label><input type="email" id="mu-email" autocomplete="off"></div>
+    <div class="field">
+      <label>E-mail *</label><input type="email" id="mu-email" autocomplete="off">
+      <div class="field-hint" id="mu-email-hint">Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao CBS, não cria a conta de login.</div>
+    </div>
     <div class="field">
       <label>Posição</label>
       <select id="mu-posicao"><option>Sócio</option><option>Comercial</option><option>Operacional</option></select>
-      <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa (o que sobra depois da rede e dos impostos), e ela entra na divisão do Lucro Sócio. Comercial: funciona como um comissionado comum. Operacional: tem login pra operar o sistema, mas fica fora de tudo — não entra na divisão de lucro, não aparece nos Extratos nem em nenhum relatório.</div>
+      <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa, e ela entra na divisão do Lucro Sócio. Comercial: funciona como um comissionado comum. Operacional: tem login pra operar o sistema, mas fica fora de tudo — não entra na divisão de lucro, não aparece nos Extratos nem em nenhum relatório.</div>
     </div>
-    <div class="field"><label id="mu-senha-label">Senha *</label><input type="text" id="mu-senha" autocomplete="off" spellcheck="false" placeholder="Mínimo 4 caracteres"></div>
-    <div class="field-hint" id="mu-senha-hint" style="margin-bottom:6px">Fica visível aqui de propósito — só quem já tem acesso ao sistema chega nessa tela, e não existe "esqueci minha senha".</div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-usuario')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveUsuario()">Salvar</button>
@@ -532,7 +535,7 @@ tbody tr:hover{background:var(--card);}
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-recebimento')">Cancelar</button>
-      <button class="btn btn-primary" onclick="saveRecebimento()">Salvar recebimento</button>
+      <button class="btn btn-primary" id="btn-save-recebimento" onclick="saveRecebimento()">Salvar recebimento</button>
     </div>
   </div>
 </div>
@@ -553,31 +556,67 @@ tbody tr:hover{background:var(--card);}
 
 <div id="toast"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ================= DADOS ================= */
-const STORAGE_KEY = 'cbs_db_v1';
-const SESSION_KEY = 'cbs_session_v1';
+/* ================= SUPABASE ================= */
+const SUPABASE_URL = 'https://pxcqyzbgfbwwkazmonzx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4Y3F5emJnZmJ3d2them1vbnp4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxOTc3ODEsImV4cCI6MjA5Nzc3Mzc4MX0.JYBimxgVyL-mXilSTVuQ1CO8g0xQtAFc18lfRaWa0UI';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-function defaultDB(){
-  return {
-    usuarios: [
-      { id:1, nome:'Bruno Rivero', email:'bruno.rivero@gmail.com', senha:'cbs1234', posicao:'Sócio' } // senha de teste — troque em Configurações → Usuários assim que entrar
-    ],
-    comissionados: [],
-    negocios: [],
-    recebimentos: [],
-    config: { agentePct: 50, impostoPct: 0 },
-    seq: { comissionado:1, negocio:1, recebimento:1, usuario:2 }
-  };
+/* ================= DADOS (espelho local do Supabase, populado por refreshStore()) ================= */
+let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], config:{ agentePct:50, impostoPct:0 } };
+let currentUser = null; // { email, nome, posicao }
+
+async function refreshStore(){
+  const [usuariosR, comissionadosR, negociosR, negComR, recebimentosR, splitsR, configR] = await Promise.all([
+    sbClient.from('cbs_usuarios').select('*'),
+    sbClient.from('cbs_comissionados').select('*'),
+    sbClient.from('cbs_negocios').select('*'),
+    sbClient.from('cbs_negocio_comissionados').select('*'),
+    sbClient.from('cbs_recebimentos').select('*'),
+    sbClient.from('cbs_recebimento_splits').select('*'),
+    sbClient.from('cbs_config').select('*').eq('id',1).maybeSingle(),
+  ]);
+  const erro = usuariosR.error || comissionadosR.error || negociosR.error || negComR.error || recebimentosR.error || splitsR.error || configR.error;
+  if(erro){ toast('Erro ao carregar dados: '+erro.message, 'err'); return; }
+
+  STORE.usuarios = (usuariosR.data||[]).map(u=>({ email:u.email, nome:u.nome, posicao:u.posicao }));
+
+  STORE.comissionados = (comissionadosR.data||[]).map(c=>({
+    id:c.id, nome:c.nome, telefone:c.telefone, email:c.email, pix:c.pix, status:c.status,
+    indicadoPor:c.indicado_por, observacoes:c.observacoes, dataCadastro:c.created_at
+  }));
+
+  const ncByNeg = {};
+  (negComR.data||[]).forEach(nc=>{
+    (ncByNeg[nc.negocio_id] = ncByNeg[nc.negocio_id]||[]).push({ comissionadoId:nc.comissionado_id, percentual:Number(nc.percentual), principal:!!nc.principal });
+  });
+  STORE.negocios = (negociosR.data||[]).map(n=>({
+    id:n.id, empresaCliente:n.empresa_cliente, cnpj:n.cnpj, data:n.data_inicio, status:n.status,
+    observacoes:n.observacoes, dataCadastro:n.created_at, comissionados: ncByNeg[n.id]||[]
+  }));
+
+  const splitsByRec = {};
+  (splitsR.data||[]).forEach(s=>{
+    (splitsByRec[s.recebimento_id] = splitsByRec[s.recebimento_id]||[]).push({
+      comissionadoId:s.comissionado_id, percentual:Number(s.percentual), valor:Number(s.valor),
+      statusPagamento:s.status_pagamento, dataPagamento:s.data_pagamento
+    });
+  });
+  STORE.recebimentos = (recebimentosR.data||[]).map(r=>({
+    id:r.id, negocioId:r.negocio_id, data:r.data, referencia:r.referencia,
+    valorRecebido:Number(r.valor_recebido), percentualImposto:Number(r.percentual_imposto), valorImposto:Number(r.valor_imposto),
+    percentualAgente:Number(r.percentual_agente), valorAgente:Number(r.valor_agente), valorLiquido:Number(r.valor_liquido),
+    observacoes:r.observacoes, dataCadastro:r.created_at, splits: splitsByRec[r.id]||[]
+  }));
+
+  STORE.config = configR.data
+    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct) }
+    : { impostoPct:0, agentePct:50 };
 }
-let STORE = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || defaultDB();
-if(!STORE.config) STORE.config = { agentePct: 50 }; // compat com bases criadas antes da área de Configurações
-if(STORE.config.impostoPct==null) STORE.config.impostoPct = 0; // compat
-if(!STORE.seq.usuario) STORE.seq.usuario = Math.max(1, ...STORE.usuarios.map(u=>u.id)) + 1; // compat
-STORE.usuarios.forEach(u=>{ if(!u.posicao) u.posicao = 'Sócio'; }); // compat
-function save(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(STORE)); }
 
 /* ================= HELPERS ================= */
+function round2(n){ n = Number(n)||0; return Math.round((n + Number.EPSILON) * 100) / 100; }
 function fmtR$(n){ n = Number(n)||0; return n.toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 function fmtData(iso){ if(!iso) return '—'; const p = iso.split('-'); return p.length===3 ? `${p[2]}/${p[1]}/${p[0]}` : iso; }
 const MESES_ABREV = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -593,39 +632,57 @@ function setVal(id,v){ document.getElementById(id).value = v==null?'':v; }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function toast(msg,type){
   const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||'ok');
-  clearTimeout(window._toastTO); window._toastTO=setTimeout(()=>{t.className='';},2600);
+  clearTimeout(window._toastTO); window._toastTO=setTimeout(()=>{t.className='';},3200);
 }
 function comById(id){ return STORE.comissionados.find(c=>c.id===id); }
 function negById(id){ return STORE.negocios.find(n=>n.id===id); }
 function recById(id){ return STORE.recebimentos.find(r=>r.id===id); }
 
-/* ================= LOGIN ================= */
-function doLogin(){
+/* ================= LOGIN (Supabase Auth de verdade) ================= */
+async function doLogin(){
   const email = val('l-email').trim().toLowerCase();
   const senha = val('l-senha');
-  const u = STORE.usuarios.find(u=>u.email.toLowerCase()===email && u.senha===senha);
-  if(!u){ document.getElementById('login-err').style.display='block'; return; }
+  const btn = document.getElementById('btn-login');
   document.getElementById('login-err').style.display='none';
-  localStorage.setItem(SESSION_KEY, JSON.stringify({uid:u.id, nome:u.nome}));
-  showApp();
+  if(!email || !senha){ document.getElementById('login-err').textContent='Preencha e-mail e senha.'; document.getElementById('login-err').style.display='block'; return; }
+  btn.disabled = true; btn.textContent = 'Entrando...';
+  const { data, error } = await sbClient.auth.signInWithPassword({ email, password: senha });
+  btn.disabled = false; btn.textContent = 'Entrar';
+  if(error || !data.session){
+    document.getElementById('login-err').textContent = 'E-mail ou senha incorretos.';
+    document.getElementById('login-err').style.display='block';
+    return;
+  }
+  await afterLogin();
 }
-function doLogout(){
-  localStorage.removeItem(SESSION_KEY);
+async function afterLogin(){
+  const { data: sess } = await sbClient.auth.getSession();
+  const email = sess?.session?.user?.email;
+  if(!email){ return; }
+  const { data: perfil, error } = await sbClient.from('cbs_usuarios').select('*').eq('email', email).maybeSingle();
+  if(error || !perfil){
+    document.getElementById('login-err').textContent = 'Login válido, mas esse e-mail ainda não tem acesso liberado ao CBS. Fale com um sócio.';
+    document.getElementById('login-err').style.display='block';
+    await sbClient.auth.signOut();
+    return;
+  }
+  currentUser = { email:perfil.email, nome:perfil.nome, posicao:perfil.posicao };
+  document.getElementById('screen-login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('side-user-name').textContent = currentUser.nome;
+  await refreshStore();
+  renderAll();
+}
+async function doLogout(){
+  await sbClient.auth.signOut();
+  currentUser = null;
   document.getElementById('app').style.display='none';
   document.getElementById('screen-login').style.display='flex';
   setVal('l-senha','');
 }
-function showApp(){
-  const sess = JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
-  if(!sess) return;
-  document.getElementById('screen-login').style.display='none';
-  document.getElementById('app').style.display='block';
-  document.getElementById('side-user-name').textContent = sess.nome;
-  renderAll();
-}
-(function initAuth(){
-  const sess = JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
-  if(sess && STORE.usuarios.find(u=>u.id===sess.uid)) showApp();
+(async function boot(){
+  const { data } = await sbClient.auth.getSession();
+  if(data?.session){ await afterLogin(); }
 })();
 
 /* ================= NAV ================= */
@@ -681,84 +738,102 @@ function renderUsuarios(){
       <td>${esc(u.email)}</td>
       <td><span class="badge ${u.posicao==='Sócio'?'green':u.posicao==='Operacional'?'gray':'blue'}">${esc(u.posicao)}</span></td>
       <td><div class="row-actions">
-        <button class="icon-btn" onclick="openUsuarioModal(${u.id})" title="Editar">✎</button>
-        <button class="icon-btn" onclick="deleteUsuario(${u.id})" title="Excluir">🗑</button>
+        <button class="icon-btn" onclick="openUsuarioModal('${esc(u.email)}')" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteUsuario('${esc(u.email)}')" title="Excluir">🗑</button>
       </div></td>
     </tr>`).join('');
 }
-function openUsuarioModal(id){
-  document.getElementById('mu-titulo').textContent = id ? 'Editar usuário' : 'Novo usuário';
-  setVal('mu-id', id||'');
-  if(id){
-    const u = STORE.usuarios.find(u=>u.id===id);
-    setVal('mu-nome', u.nome); setVal('mu-email', u.email); setVal('mu-senha', u.senha); setVal('mu-posicao', u.posicao||'Sócio');
+function openUsuarioModal(email){
+  document.getElementById('mu-titulo').textContent = email ? 'Editar usuário' : 'Novo usuário';
+  setVal('mu-original-email', email||'');
+  const emailInput = document.getElementById('mu-email');
+  if(email){
+    const u = STORE.usuarios.find(u=>u.email===email);
+    setVal('mu-nome', u.nome); setVal('mu-email', u.email); setVal('mu-posicao', u.posicao||'Sócio');
+    emailInput.disabled = true;
+    document.getElementById('mu-email-hint').textContent = 'E-mail não pode ser trocado aqui (é a chave de acesso) — pra mudar, exclua e cadastre de novo.';
   } else {
-    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-senha',''); setVal('mu-posicao','Sócio');
+    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-posicao','Sócio');
+    emailInput.disabled = false;
+    document.getElementById('mu-email-hint').textContent = 'Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao CBS, não cria a conta de login.';
   }
   document.getElementById('modal-usuario').classList.add('open');
 }
-function saveUsuario(){
+async function saveUsuario(){
   const nome = val('mu-nome').trim();
   const email = val('mu-email').trim().toLowerCase();
-  const senha = val('mu-senha');
   const posicao = val('mu-posicao');
-  const id = val('mu-id');
+  const originalEmail = val('mu-original-email');
   if(!nome || !email){ toast('Preencha nome e e-mail.','err'); return; }
-  if(!senha || senha.length<4){ toast('Informe uma senha com pelo menos 4 caracteres.','err'); return; }
-  const duplicado = STORE.usuarios.find(u=>u.email.toLowerCase()===email && String(u.id)!==id);
-  if(duplicado){ toast('Já existe um usuário com esse e-mail.','err'); return; }
-  if(id){
-    const u = STORE.usuarios.find(u=>u.id===Number(id));
-    u.nome = nome; u.email = email; u.posicao = posicao; u.senha = senha;
-    toast('Usuário atualizado.');
+  let error;
+  if(originalEmail){
+    ({ error } = await sbClient.from('cbs_usuarios').update({ nome, posicao }).eq('email', originalEmail));
   } else {
-    STORE.usuarios.push({ id: STORE.seq.usuario++, nome, email, senha, posicao });
-    toast('Usuário cadastrado.');
+    ({ error } = await sbClient.from('cbs_usuarios').insert({ email, nome, posicao }));
   }
-  save(); closeModal('modal-usuario'); renderAll();
+  if(error){
+    toast('Erro ao salvar: ' + (error.message.includes('duplicate') ? 'já existe um usuário com esse e-mail.' : error.message), 'err');
+    return;
+  }
+  toast(originalEmail ? 'Usuário atualizado.' : 'Usuário cadastrado — confirme que a conta dele já existe em Authentication → Users no Supabase.');
+  await refreshStore(); closeModal('modal-usuario'); renderAll();
 }
-function deleteUsuario(id){
+async function deleteUsuario(email){
   if(STORE.usuarios.length<=1){ toast('Precisa manter pelo menos um usuário com acesso.','err'); return; }
-  if(!confirm('Excluir este usuário? Ele perde o acesso ao sistema imediatamente.')) return;
-  STORE.usuarios = STORE.usuarios.filter(u=>u.id!==id); save(); renderAll();
+  if(currentUser && email===currentUser.email){ toast('Você não pode remover o próprio acesso.','err'); return; }
+  if(!confirm('Excluir este usuário? Ele perde o acesso ao CBS imediatamente (a conta de login no Supabase continua existindo).')) return;
+  const { error } = await sbClient.from('cbs_usuarios').delete().eq('email', email);
+  if(error){ toast('Erro ao excluir: '+error.message,'err'); return; }
+  await refreshStore(); renderAll();
 }
 function updateConfigPreview(){
   const impostoPct = Number(document.getElementById('cfg-imposto-pct').value)||0;
   const agentePct = Number(document.getElementById('cfg-agente-pct').value)||0;
   const recebido = 1000;
-  const imposto = recebido*impostoPct/100;
-  const lucroBruto = recebido - imposto;
-  const agente = lucroBruto*agentePct/100;
-  const lucroLiquido = lucroBruto - agente;
+  const imposto = round2(recebido*impostoPct/100);
+  const lucroBruto = round2(recebido - imposto);
+  const agente = round2(lucroBruto*agentePct/100);
+  const lucroLiquido = round2(lucroBruto - agente);
   document.getElementById('cfg-preview').textContent =
     `Exemplo: em um recebimento de ${fmtR$(recebido)} — imposto: ${fmtR$(imposto)} — Lucro Bruto CBS: ${fmtR$(lucroBruto)}. O Agente Banco fica com ${fmtR$(agente)}; sobra o Lucro Líquido CBS de ${fmtR$(lucroLiquido)}, que é a base da comissão da rede.`;
 }
 document.addEventListener('input', e=>{ if(e.target && (e.target.id==='cfg-agente-pct'||e.target.id==='cfg-imposto-pct')) updateConfigPreview(); });
-function saveConfig(){
+async function saveConfig(){
   const pct = Number(document.getElementById('cfg-agente-pct').value);
   const impostoPct = Number(document.getElementById('cfg-imposto-pct').value);
   if(isNaN(pct) || pct<0 || pct>100){ toast('Informe um percentual entre 0 e 100 pro Agente Banco.','err'); return; }
   if(isNaN(impostoPct) || impostoPct<0 || impostoPct>100){ toast('Informe um percentual de imposto entre 0 e 100.','err'); return; }
-  STORE.config.agentePct = pct; STORE.config.impostoPct = impostoPct;
-  save(); renderAll(); toast('Configuração salva.');
+  const { error } = await sbClient.from('cbs_config').update({ agente_pct: pct, imposto_pct: impostoPct }).eq('id',1);
+  if(error){ toast('Erro: '+error.message,'err'); return; }
+  await refreshStore(); renderAll(); toast('Configuração salva.');
 }
-// recalcula imposto, Agente Banco e comissões de TODOS os recebimentos já salvos, usando a fórmula atual
-// (calcCascataRecebimento) — cada recebimento mantém o % de imposto/agente/comissionado que já tinha, só o VALOR é refeito.
-// Necessário sempre que a fórmula de cálculo mudar, pra não deixar lançamentos antigos com números de uma fórmula anterior.
-function recalcularRecebimentos(){
+// recalcula imposto, Agente Banco e comissões — mas PULA qualquer recebimento que já tenha algum repasse
+// marcado como Pago, pra nunca reescrever um valor que já foi de fato pago (risco apontado em revisão).
+async function recalcularRecebimentos(){
   if(!STORE.recebimentos.length){ toast('Nenhum recebimento lançado ainda.','err'); return; }
-  if(!confirm(`Isso vai recalcular os ${STORE.recebimentos.length} recebimento(s) já lançados com a fórmula atual (mantendo os percentuais de cada um). O status de pagamento (Pago/Pendente) é preservado, mas o VALOR de cada comissão pode mudar. Continuar?`)) return;
-  STORE.recebimentos.forEach(r=>{
+  const elegiveis = STORE.recebimentos.filter(r => !(r.splits||[]).some(s=>s.statusPagamento==='Pago'));
+  const bloqueados = STORE.recebimentos.length - elegiveis.length;
+  if(!elegiveis.length){ toast('Todos os recebimentos têm repasses já pagos — nenhum foi recalculado.','err'); return; }
+  const msg = bloqueados>0
+    ? `Isso vai recalcular ${elegiveis.length} recebimento(s) sem repasses pagos. ${bloqueados} recebimento(s) com repasses já pagos serão pulados. Continuar?`
+    : `Isso vai recalcular os ${elegiveis.length} recebimento(s) já lançados com a fórmula atual (mantendo os percentuais de cada um). Continuar?`;
+  if(!confirm(msg)) return;
+  for(const r of elegiveis){
     const impostoPct = r.percentualImposto!=null ? r.percentualImposto : STORE.config.impostoPct;
     const agentePct = r.percentualAgente!=null ? r.percentualAgente : STORE.config.agentePct;
     const c = calcCascataRecebimento(Number(r.valorRecebido||0), impostoPct, agentePct);
-    r.percentualImposto = impostoPct; r.valorImposto = c.valorImposto;
-    r.percentualAgente = agentePct; r.valorAgente = c.valorAgente;
-    r.valorLiquido = c.valorLiquido;
-    (r.splits||[]).forEach(s=>{ s.valor = c.valorLiquido * (Number(s.percentual)||0) / 100; });
-  });
-  save(); renderAll();
-  toast('Recebimentos recalculados com a fórmula atual.');
+    await sbClient.from('cbs_recebimentos').update({
+      percentual_imposto: impostoPct, valor_imposto: c.valorImposto,
+      percentual_agente: agentePct, valor_agente: c.valorAgente, valor_liquido: c.valorLiquido
+    }).eq('id', r.id);
+    for(const s of (r.splits||[])){
+      const novoValor = round2(c.valorLiquido * (Number(s.percentual)||0) / 100);
+      await sbClient.from('cbs_recebimento_splits').update({ valor: novoValor })
+        .eq('recebimento_id', r.id).eq('comissionado_id', s.comissionadoId);
+    }
+  }
+  await refreshStore(); renderAll();
+  toast(bloqueados>0 ? `${elegiveis.length} recalculado(s), ${bloqueados} pulado(s) por já ter pagamento.` : 'Recebimentos recalculados com a fórmula atual.');
 }
 
 /* ================= CALC HELPERS ================= */
@@ -927,32 +1002,49 @@ function openNegocioModal(id){
   renderSplitBox();
   document.getElementById('modal-negocio').classList.add('open');
 }
-function saveNegocio(){
+async function saveNegocio(){
   const empresa = val('mn-empresa').trim();
   if(!empresa){ toast('Preencha a empresa cliente.','err'); return; }
   const splits = mnSplitRows.filter(r=>r.comissionadoId).map(r=>({
     comissionadoId:Number(r.comissionadoId), percentual:Number(r.percentual)||0, principal:!!r.principal
   }));
+  // trava de rateio: a soma da rede não pode passar de 100% do Lucro Líquido CBS
+  const somaPct = round2(splits.reduce((a,r)=>a+r.percentual,0));
+  if(somaPct > 100){ toast(`A soma dos percentuais da rede (${somaPct}%) não pode passar de 100%. Ajuste antes de salvar.`,'err'); return; }
   const id = val('mn-id');
   const payload = {
-    empresaCliente: empresa, cnpj: val('mn-cnpj').trim(),
-    data: val('mn-data'), status: val('mn-status'), observacoes: val('mn-obs').trim(), comissionados: splits
+    empresa_cliente: empresa, cnpj: val('mn-cnpj').trim()||null,
+    data_inicio: val('mn-data')||null, status: val('mn-status'), observacoes: val('mn-obs').trim()||null
   };
+  const btn = document.getElementById('btn-save-negocio'); btn.disabled = true;
+  let negocioId;
   if(id){
-    Object.assign(negById(Number(id)), payload);
-    toast('Negócio atualizado.');
+    negocioId = Number(id);
+    const { error } = await sbClient.from('cbs_negocios').update(payload).eq('id', negocioId);
+    if(error){ toast('Erro ao salvar: '+error.message,'err'); btn.disabled=false; return; }
   } else {
-    payload.id = STORE.seq.negocio++; payload.dataCadastro = new Date().toISOString();
-    STORE.negocios.push(payload);
-    toast('Negócio cadastrado.');
+    const { data, error } = await sbClient.from('cbs_negocios').insert(payload).select().single();
+    if(error){ toast('Erro ao salvar: '+error.message,'err'); btn.disabled=false; return; }
+    negocioId = data.id;
   }
-  save(); closeModal('modal-negocio'); renderAll();
+  // reconcilia a divisão de comissão: apaga tudo e reinsere (simples e seguro pra uma tela só de configuração)
+  await sbClient.from('cbs_negocio_comissionados').delete().eq('negocio_id', negocioId);
+  if(splits.length){
+    const rows = splits.map(s=>({ negocio_id:negocioId, comissionado_id:s.comissionadoId, percentual:s.percentual, principal:s.principal }));
+    const { error: e2 } = await sbClient.from('cbs_negocio_comissionados').insert(rows);
+    if(e2){ toast('Erro ao salvar divisão da rede: '+e2.message,'err'); btn.disabled=false; return; }
+  }
+  btn.disabled = false;
+  toast(id ? 'Negócio atualizado.' : 'Negócio cadastrado.');
+  await refreshStore(); closeModal('modal-negocio'); renderAll();
 }
-function deleteNegocio(id){
+async function deleteNegocio(id){
   const temRec = STORE.recebimentos.some(r=>r.negocioId===id);
   if(temRec){ toast('Não é possível excluir: existem recebimentos vinculados a este negócio.','err'); return; }
   if(!confirm('Excluir este negócio?')) return;
-  STORE.negocios = STORE.negocios.filter(n=>n.id!==id); save(); renderAll();
+  const { error } = await sbClient.from('cbs_negocios').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir: '+error.message,'err'); return; }
+  await refreshStore(); renderAll();
 }
 
 /* ================= REDE (COMISSIONADOS) ================= */
@@ -1011,7 +1103,7 @@ function openComissionadoModal(id){
   }
   document.getElementById('modal-comissionado').classList.add('open');
 }
-function saveComissionado(){
+async function saveComissionado(){
   const nome = val('mc-nome').trim();
   if(!nome){ toast('Informe o nome.','err'); return; }
   const id = val('mc-id');
@@ -1023,18 +1115,22 @@ function saveComissionado(){
       atual = atual.indicadoPor ? comById(atual.indicadoPor) : null;
     }
   }
-  const payload = { nome, telefone: val('mc-tel').trim(), email: val('mc-email').trim(), pix: val('mc-pix').trim(),
-    status: val('mc-status'), observacoes: val('mc-obs').trim(), indicadoPor };
-  if(id){ Object.assign(comById(Number(id)), payload); toast('Comissionado atualizado.'); }
-  else{ payload.id = STORE.seq.comissionado++; payload.dataCadastro = new Date().toISOString(); STORE.comissionados.push(payload); toast('Comissionado cadastrado.'); }
-  save(); closeModal('modal-comissionado'); renderAll();
+  const payload = { nome, telefone: val('mc-tel').trim()||null, email: val('mc-email').trim()||null, pix: val('mc-pix').trim()||null,
+    status: val('mc-status'), observacoes: val('mc-obs').trim()||null, indicado_por: indicadoPor };
+  let error;
+  if(id){ ({ error } = await sbClient.from('cbs_comissionados').update(payload).eq('id', Number(id))); }
+  else{ ({ error } = await sbClient.from('cbs_comissionados').insert(payload)); }
+  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
+  toast(id ? 'Comissionado atualizado.' : 'Comissionado cadastrado.');
+  await refreshStore(); closeModal('modal-comissionado'); renderAll();
 }
-function deleteComissionado(id){
+async function deleteComissionado(id){
   const emUso = STORE.negocios.some(n=>(n.comissionados||[]).some(c=>c.comissionadoId===id));
   if(emUso){ toast('Não é possível excluir: comissionado vinculado a negócios.','err'); return; }
   if(!confirm('Excluir este comissionado?')) return;
-  STORE.comissionados.forEach(c=>{ if(c.indicadoPor===id) c.indicadoPor=null; });
-  STORE.comissionados = STORE.comissionados.filter(c=>c.id!==id); save(); renderAll();
+  const { error } = await sbClient.from('cbs_comissionados').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir: '+error.message,'err'); return; }
+  await refreshStore(); renderAll();
 }
 
 /* ================= RECEBIMENTOS ================= */
@@ -1084,11 +1180,12 @@ function onRecebimentoNegocioChange(){
 // cascata (conferida na planilha do usuário): Recebido -> Imposto -> Lucro Bruto CBS.
 // Do Lucro Bruto CBS, o Agente Banco fica com sua fatia (ex: 50%) e o restante é o Lucro Líquido CBS (a outra fatia).
 // A comissão da rede é um % calculado SOBRE O LUCRO LÍQUIDO CBS (não sobre o Lucro Bruto).
+// Cada etapa é arredondada em centavos (round2) pra não acumular diferença de fração de centavo nos totais.
 function calcCascataRecebimento(valorRecebido, impostoPct, agentePct){
-  const valorImposto = valorRecebido * impostoPct / 100;
-  const lucroBrutoCBS = valorRecebido - valorImposto;
-  const valorAgente = lucroBrutoCBS * agentePct / 100;
-  const valorLiquido = lucroBrutoCBS - valorAgente; // Lucro Líquido CBS
+  const valorImposto = round2(valorRecebido * impostoPct / 100);
+  const lucroBrutoCBS = round2(valorRecebido - valorImposto);
+  const valorAgente = round2(lucroBrutoCBS * agentePct / 100);
+  const valorLiquido = round2(lucroBrutoCBS - valorAgente); // Lucro Líquido CBS
   return { valorImposto, lucroBrutoCBS, valorAgente, valorLiquido };
 }
 function renderRecebimentoSplitPreview(){
@@ -1106,14 +1203,14 @@ function renderRecebimentoSplitPreview(){
     return;
   }
   box.innerHTML = resumo + mrSplitRows.map((r)=>{
-    const calc = c.valorLiquido * (Number(r.percentual)||0) / 100;
+    const calc = round2(c.valorLiquido * (Number(r.percentual)||0) / 100);
     return `<div class="split-row">
       <div style="flex:1 1 140px;font-size:13px;padding:8px 0">${esc(comById(r.comissionadoId)?.nome||'?')}</div>
       <div style="flex:0 0 70px;font-size:13px;padding:8px 0;color:var(--text-dim)">${r.percentual}%</div>
       <div style="flex:0 0 110px;font-size:13px;padding:8px 0;text-align:right;color:var(--accent);font-weight:700">${fmtR$(calc)}</div>
     </div>`;
   }).join('') + `<div class="split-sum" style="display:flex;justify-content:space-between;align-items:center">
-      <span>Total repassado à rede: <b>${fmtR$(mrSplitRows.reduce((a,r)=>a+c.valorLiquido*(Number(r.percentual)||0)/100,0))}</b> de ${fmtR$(c.valorLiquido)}</span>
+      <span>Total repassado à rede: <b>${fmtR$(mrSplitRows.reduce((a,r)=>a+round2(c.valorLiquido*(Number(r.percentual)||0)/100),0))}</b> de ${fmtR$(c.valorLiquido)}</span>
       <button type="button" class="btn btn-ghost btn-sm" onclick="editarPercentuaisDoNegocio()">✎ Editar % no negócio</button>
     </div>`;
 }
@@ -1141,10 +1238,10 @@ function openRecebimentoModal(id){
   renderRecebimentoSplitPreview();
   document.getElementById('modal-recebimento').classList.add('open');
 }
-function saveRecebimento(){
+async function saveRecebimento(){
   const negocioId = Number(val('mr-negocio'));
   const data = val('mr-data');
-  const valorRecebido = Number(val('mr-valor'));
+  const valorRecebido = round2(Number(val('mr-valor')));
   const percentualImposto = Number(val('mr-imposto-pct'))||0;
   const percentualAgente = Number(val('mr-agente-pct'))||0;
   if(!negocioId){ toast('Selecione o negócio.','err'); return; }
@@ -1152,22 +1249,42 @@ function saveRecebimento(){
   if(!valorRecebido || valorRecebido<=0){ toast('Informe o valor recebido.','err'); return; }
   const id = val('mr-id');
   const c = calcCascataRecebimento(valorRecebido, percentualImposto, percentualAgente);
-  const splits = mrSplitRows.map(r=>({
-    comissionadoId:r.comissionadoId, percentual:Number(r.percentual)||0,
-    valor: c.valorLiquido*(Number(r.percentual)||0)/100,
-    statusPagamento: r.statusPagamento || 'Pendente', dataPagamento: r.dataPagamento || null
-  }));
-  const payload = { negocioId, data, referencia: val('mr-ref').trim(), valorRecebido,
-    percentualImposto, valorImposto: c.valorImposto,
-    percentualAgente, valorAgente: c.valorAgente, valorLiquido: c.valorLiquido,
-    observacoes: val('mr-obs').trim(), splits };
-  if(id){ Object.assign(recById(Number(id)), payload); toast('Recebimento atualizado.'); }
-  else{ payload.id = STORE.seq.recebimento++; payload.dataCadastro = new Date().toISOString(); STORE.recebimentos.push(payload); toast('Recebimento lançado e dividido entre a rede.'); }
-  save(); closeModal('modal-recebimento'); renderAll();
+  const payload = {
+    negocio_id: negocioId, data, referencia: val('mr-ref').trim()||null, valor_recebido: valorRecebido,
+    percentual_imposto: percentualImposto, valor_imposto: c.valorImposto,
+    percentual_agente: percentualAgente, valor_agente: c.valorAgente, valor_liquido: c.valorLiquido,
+    observacoes: val('mr-obs').trim()||null
+  };
+  const btn = document.getElementById('btn-save-recebimento'); btn.disabled = true;
+  let recebimentoId;
+  if(id){
+    recebimentoId = Number(id);
+    const { error } = await sbClient.from('cbs_recebimentos').update(payload).eq('id', recebimentoId);
+    if(error){ toast('Erro ao salvar: '+error.message,'err'); btn.disabled=false; return; }
+  } else {
+    const { data: ins, error } = await sbClient.from('cbs_recebimentos').insert(payload).select().single();
+    if(error){ toast('Erro ao salvar: '+error.message,'err'); btn.disabled=false; return; }
+    recebimentoId = ins.id;
+  }
+  await sbClient.from('cbs_recebimento_splits').delete().eq('recebimento_id', recebimentoId);
+  if(mrSplitRows.length){
+    const rows = mrSplitRows.map(r=>({
+      recebimento_id: recebimentoId, comissionado_id:r.comissionadoId, percentual:Number(r.percentual)||0,
+      valor: round2(c.valorLiquido*(Number(r.percentual)||0)/100),
+      status_pagamento: r.statusPagamento||'Pendente', data_pagamento: r.dataPagamento||null
+    }));
+    const { error: e2 } = await sbClient.from('cbs_recebimento_splits').insert(rows);
+    if(e2){ toast('Erro ao salvar divisão: '+e2.message,'err'); btn.disabled=false; return; }
+  }
+  btn.disabled = false;
+  toast(id ? 'Recebimento atualizado.' : 'Recebimento lançado e dividido entre a rede.');
+  await refreshStore(); closeModal('modal-recebimento'); renderAll();
 }
-function deleteRecebimento(id){
+async function deleteRecebimento(id){
   if(!confirm('Excluir este recebimento? Os repasses vinculados também serão removidos.')) return;
-  STORE.recebimentos = STORE.recebimentos.filter(r=>r.id!==id); save(); renderAll();
+  const { error } = await sbClient.from('cbs_recebimentos').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir: '+error.message,'err'); return; }
+  await refreshStore(); renderAll();
 }
 
 /* ================= PAGAMENTOS ================= */
@@ -1196,27 +1313,39 @@ function openPagarModal(recId, comId){
   document.getElementById('mp-desc').textContent = `${comById(comId)?.nome||'?'} — ${fmtR$(s?s.valor:0)} referente a ${negById(r.negocioId)?.empresaCliente||''}`;
   document.getElementById('modal-pagar').classList.add('open');
 }
-function confirmPagamento(){
+async function confirmPagamento(){
   const recId = Number(val('mp-recid')), comId = Number(val('mp-comid'));
-  const r = recById(recId); const s = (r.splits||[]).find(x=>x.comissionadoId===comId);
-  if(s){ s.statusPagamento='Pago'; s.dataPagamento=val('mp-data'); save(); toast('Pagamento confirmado.'); }
-  closeModal('modal-pagar'); renderAll();
+  const dataPagamento = val('mp-data');
+  const { error } = await sbClient.from('cbs_recebimento_splits')
+    .update({ status_pagamento:'Pago', data_pagamento: dataPagamento })
+    .eq('recebimento_id', recId).eq('comissionado_id', comId);
+  if(error){ toast('Erro: '+error.message,'err'); return; }
+  toast('Pagamento confirmado.');
+  closeModal('modal-pagar'); await refreshStore(); renderAll();
 }
-function revertPagamento(recId, comId){
-  const r = recById(recId); const s = (r.splits||[]).find(x=>x.comissionadoId===comId);
-  if(s){ s.statusPagamento='Pendente'; s.dataPagamento=null; save(); renderAll(); toast('Pagamento revertido.'); }
+async function revertPagamento(recId, comId){
+  const { error } = await sbClient.from('cbs_recebimento_splits')
+    .update({ status_pagamento:'Pendente', data_pagamento: null })
+    .eq('recebimento_id', recId).eq('comissionado_id', comId);
+  if(error){ toast('Erro: '+error.message,'err'); return; }
+  await refreshStore(); renderAll(); toast('Pagamento revertido.');
 }
 
 /* ================= EXTRATOS ================= */
+// valor do select combina tipo:chave — sócio usa e-mail (chave real dele), comissionado usa o id numérico
 function fillExtratoSelect(){
   const sel = document.getElementById('ext-pessoa');
   const cur = sel.value;
   const socios = STORE.usuarios.filter(u=>u.posicao==='Sócio');
   let html = `<option value="">Selecione uma pessoa...</option>`;
-  if(socios.length) html += `<optgroup label="Sócios">${socios.map(u=>`<option value="socio-${u.id}">${esc(u.nome)}</option>`).join('')}</optgroup>`;
-  if(STORE.comissionados.length) html += `<optgroup label="Rede comercial">${STORE.comissionados.map(c=>`<option value="com-${c.id}">${esc(c.nome)}</option>`).join('')}</optgroup>`;
+  if(socios.length) html += `<optgroup label="Sócios">${socios.map(u=>`<option value="socio:${esc(u.email)}">${esc(u.nome)}</option>`).join('')}</optgroup>`;
+  if(STORE.comissionados.length) html += `<optgroup label="Rede comercial">${STORE.comissionados.map(c=>`<option value="com:${c.id}">${esc(c.nome)}</option>`).join('')}</optgroup>`;
   sel.innerHTML = html;
   if(cur) sel.value = cur;
+}
+function parseExtratoValue(raw){
+  const idx = raw.indexOf(':');
+  return { tipo: raw.slice(0,idx), chave: raw.slice(idx+1) };
 }
 // monta as linhas do extrato de comissionado — reaproveitado na tela e na impressão
 function extratoComissionadoRows(comId, de, ate){
@@ -1250,7 +1379,7 @@ function renderExtrato(){
   const tb = document.querySelector('#tbl-extrato tbody');
   cardsEl.innerHTML=''; head.innerHTML='';
   if(!raw){ tb.innerHTML = `<tr class="empty-row"><td>Selecione uma pessoa pra ver o extrato.</td></tr>`; return; }
-  const [tipo, idStr] = raw.split('-'); const id = Number(idStr);
+  const { tipo, chave } = parseExtratoValue(raw);
 
   if(tipo==='socio'){
     const rows = extratoSocioRows(de, ate);
@@ -1279,6 +1408,7 @@ function renderExtrato(){
     return;
   }
 
+  const id = Number(chave);
   const splits = extratoComissionadoRows(id, de, ate);
   const totalGeral = splits.reduce((a,s)=>a+Number(s.valor||0),0);
   const totalPago = splits.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0);
@@ -1302,12 +1432,12 @@ function renderExtrato(){
 function printExtrato(){
   const raw = document.getElementById('ext-pessoa').value;
   if(!raw){ toast('Selecione uma pessoa.','err'); return; }
-  const [tipo, idStr] = raw.split('-'); const id = Number(idStr);
+  const { tipo, chave } = parseExtratoValue(raw);
   const de = document.getElementById('ext-de').value, ate = document.getElementById('ext-ate').value;
   document.getElementById('pa-periodo').textContent = `Período: ${de?fmtData(de):'início'} até ${ate?fmtData(ate):'hoje'} — gerado em ${fmtData(todayISO())}`;
 
   if(tipo==='socio'){
-    const u = STORE.usuarios.find(u=>u.id===id);
+    const u = STORE.usuarios.find(u=>u.email===chave);
     const rows = extratoSocioRows(de, ate);
     const totalRecebido = rows.reduce((a,r)=>a+r.recebido,0);
     const totalImposto = rows.reduce((a,r)=>a+r.imposto,0);
@@ -1339,6 +1469,7 @@ function printExtrato(){
     return;
   }
 
+  const id = Number(chave);
   const splits = extratoComissionadoRows(id, de, ate);
   document.getElementById('pa-nome').textContent = 'Extrato — ' + (comById(id)?.nome||'');
   document.getElementById('pa-thead').innerHTML = `<tr>
