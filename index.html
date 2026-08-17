@@ -98,25 +98,21 @@ a{color:inherit;}
   display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;padding:18px 28px;
   border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:5;
 }
-.topbar h2{font-size:19px;font-weight:700;display:inline-flex;align-items:center;gap:9px;}
+.topbar h2{font-size:19px;font-weight:700;}
 .topbar .sub{font-size:12.5px;color:var(--text-faint);margin-top:2px;}
 .topbar .toolbar{justify-self:end;}
-.mini-badge{
-  display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;color:var(--text-dim);
-  background:var(--card2);border:1px solid var(--border2);border-radius:20px;padding:3px 10px;
-}
-.mini-badge b{color:var(--accent);font-size:12.5px;}
-.topbar-lucro{
+.topbar-stat{
   display:none;align-items:baseline;gap:8px;font-size:12.5px;font-weight:600;color:var(--text-dim);
   text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;justify-self:center;
 }
-.topbar-lucro b{font-size:20px;font-weight:800;color:var(--accent);text-transform:none;letter-spacing:0;}
+.topbar-stat b{font-size:20px;font-weight:800;color:var(--accent);text-transform:none;letter-spacing:0;}
 .content{padding:24px 28px 60px;}
 .view{display:none;}
 .view.active{display:block;}
 
 /* ---------- CARDS / DASHBOARD ---------- */
 .grid-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:26px;}
+#dash-cards{grid-template-columns:repeat(5,1fr);}
 .stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:18px;}
 .stat-card .lbl{font-size:12px;color:var(--text-dim);font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;line-height:1.35;min-height:2.7em;}
 .stat-card .val{font-size:22px;font-weight:800;}
@@ -220,10 +216,11 @@ tbody tr:hover{background:var(--card);}
   .content{padding:18px 14px 50px;}
   .topbar{padding:14px 16px;grid-template-columns:1fr;justify-items:start;gap:8px;}
   .topbar .toolbar{justify-self:start;}
-  .topbar-lucro{justify-self:start;}
+  .topbar-stat{justify-self:start;}
   .form-row,.form-row.c3{grid-template-columns:1fr;}
   .split-row{flex-direction:column;align-items:stretch;gap:6px;}
   .split-row select,.split-row input{flex:1 1 auto;}
+  #dash-cards{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));}
 }
 </style>
 </head>
@@ -272,10 +269,10 @@ tbody tr:hover{background:var(--card);}
   <div class="main">
     <div class="topbar">
       <div>
-        <h2><span id="topbar-title">Dashboard</span> <span class="mini-badge" id="topbar-negocios-badge">◆ <b id="topbar-negocios-count">0</b> negócios ativos</span></h2>
+        <h2 id="topbar-title">Dashboard</h2>
         <div class="sub" id="topbar-sub">Visão geral da operação</div>
       </div>
-      <div class="topbar-lucro" id="topbar-lucro">Lucro Sócio <b id="topbar-lucro-val">R$ 0,00</b></div>
+      <div class="topbar-stat" id="topbar-negocios">Negócios Ativos <b id="topbar-negocios-val">0</b></div>
       <div class="toolbar">
         <button class="btn btn-primary btn-sm" id="topbar-cta" onclick="openNegocioModal()">+ Novo negócio</button>
       </div>
@@ -845,9 +842,7 @@ function goView(v){
   const m = VIEW_META[v];
   document.getElementById('topbar-title').textContent = m.title;
   document.getElementById('topbar-sub').textContent = m.sub;
-  document.getElementById('topbar-negocios-badge').style.display = v==='dashboard' ? 'inline-flex' : 'none';
-  const ehOperacional = currentUser && currentUser.posicao==='Operacional';
-  document.getElementById('topbar-lucro').style.display = (v==='dashboard' && !ehOperacional) ? 'inline-flex' : 'none';
+  document.getElementById('topbar-negocios').style.display = v==='dashboard' ? 'inline-flex' : 'none';
   const cta = document.getElementById('topbar-cta');
   if(m.cta){ cta.style.display='inline-flex'; cta.textContent=m.cta; cta.onclick=m.ctaFn; }
   else{ cta.style.display='none'; }
@@ -1151,7 +1146,7 @@ function renderDashboard(){
   const t = totals();
   const l = calcLucro();
   const ehOperacional = currentUser && currentUser.posicao==='Operacional';
-  document.getElementById('topbar-negocios-count').textContent = t.negociosAtivos;
+  document.getElementById('topbar-negocios-val').textContent = t.negociosAtivos;
   const cards = [
     {lbl:'Total recebido', val:fmtR$(t.totalRecebido), cls:'blue'},
     {lbl:'Imposto retido', val:fmtR$(t.totalImposto), cls:'warn'},
@@ -1163,7 +1158,7 @@ function renderDashboard(){
     {lbl:'Pagamentos realizados', val:fmtR$(t.repassadoPago), cls:'green'},
     {lbl:'Pagamentos pendentes', val:fmtR$(t.repassadoPendente), cls:'warn'},
   ];
-  if(!ehOperacional) document.getElementById('topbar-lucro-val').textContent = fmtR$(l.lucro);
+  if(!ehOperacional) cards.push({lbl:'Lucros Enterprise', val:fmtR$(l.lucro), cls:'green'});
   document.getElementById('dash-cards').innerHTML = cards.map(c=>`
     <div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>
   `).join('');
