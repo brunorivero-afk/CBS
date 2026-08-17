@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>CBS</title>
+<title>Enterprise Capital</title>
 <style>
 :root{
   --bg:#0b1220; --panel:#0f1830; --card:#131f3d; --card2:#16244a;
@@ -40,9 +40,7 @@ a{color:inherit;}
   border-radius:16px; padding:36px 32px; box-shadow:0 20px 60px rgba(0,0,0,.4);
 }
 .login-logo{
-  width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent-dim));
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;color:#04160f;
-  margin:0 auto 18px;
+  width:100%;max-width:270px;height:auto;display:block;margin:0 auto 18px;border-radius:12px;
 }
 .login-box h1{text-align:center;font-size:20px;font-weight:700;letter-spacing:.02em;}
 .login-box p{text-align:center;color:var(--text-dim);font-size:13px;margin-top:4px;margin-bottom:24px;}
@@ -161,6 +159,7 @@ tbody tr:hover{background:var(--card);}
 .modal-close:hover{color:var(--text);}
 .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 .form-row.c3{grid-template-columns:1fr 1fr 1fr;}
+.form-row.c4{grid-template-columns:1fr 1fr 1fr 1fr;}
 .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;padding-top:16px;border-top:1px solid var(--border);}
 
 /* split rows inside negocio modal */
@@ -220,8 +219,8 @@ tbody tr:hover{background:var(--card);}
 <!-- ================= LOGIN ================= -->
 <div id="screen-login">
   <div class="login-box">
-    <div class="login-logo">CBS</div>
-    <h1>CBS</h1>
+    <img class="login-logo" src="assets/enterprise-capital-logo.png" alt="Enterprise Capital — Correspondência Bancária">
+    <h1>Enterprise Capital</h1>
     <p>Controle da rede comercial</p>
     <div class="login-err" id="login-err">E-mail ou senha incorretos.</div>
     <div class="field">
@@ -241,8 +240,8 @@ tbody tr:hover{background:var(--card);}
 <div class="app-wrap">
   <div class="sidebar">
     <div class="side-logo">
-      <div class="mark">CBS</div>
-      <div class="txt">CBS<small>Rede comercial</small></div>
+      <div class="mark">EC</div>
+      <div class="txt">Enterprise Capital<small>Rede comercial</small></div>
     </div>
     <div class="nav-item active" data-view="dashboard" onclick="goView('dashboard')"><span class="ic">◈</span> Dashboard</div>
     <div class="nav-item" data-view="negocios" onclick="goView('negocios')"><span class="ic">◆</span> Negócios</div>
@@ -273,7 +272,7 @@ tbody tr:hover{background:var(--card);}
       <!-- DASHBOARD -->
       <div class="view active" id="view-dashboard">
         <div class="grid-cards" id="dash-cards"></div>
-        <div class="panel">
+        <div class="panel" id="painel-lucro-socio">
           <div class="panel-head"><h3>Lucro por sócio</h3></div>
           <div id="dash-lucro"></div>
         </div>
@@ -323,7 +322,7 @@ tbody tr:hover{background:var(--card);}
           </div>
           <p class="field-hint" style="margin-bottom:14px">Cada lançamento representa um valor recebido do banco referente a um negócio. O sistema divide automaticamente entre os comissionados conforme o % configurado no negócio.</p>
           <div class="tbl-wrap"><table id="tbl-recebimentos"><thead><tr>
-            <th>Data</th><th>Empresa</th><th>Referência</th><th>Valor recebido</th><th>Agente Banco</th><th>Repasse à rede</th><th></th>
+            <th>Data</th><th>Empresa</th><th>Referência</th><th>Valor recebido</th><th>CorpLink</th><th>Agente Banco</th><th>Repasse à rede</th><th></th>
           </tr></thead><tbody></tbody></table></div>
         </div>
       </div>
@@ -360,6 +359,19 @@ tbody tr:hover{background:var(--card);}
             <th>Comissionado</th><th>Empresa</th><th>Recebimento</th><th>Valor</th><th>Status</th><th>Data pagto</th><th></th>
           </tr></thead><tbody></tbody></table></div>
         </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Ajustes (Estorno / Adiantamento / Ajuste Manual)</h3>
+            <button class="btn btn-primary btn-sm" onclick="openAjusteModal()">+ Novo ajuste</button>
+          </div>
+          <p class="field-hint" style="margin-bottom:14px">
+            Lançamento à parte que abate do saldo a pagar de um comissionado, sem alterar nenhum recebimento já gravado. <b>Estorno</b>: cliente cancelou e o banco tomou a comissão de volta. <b>Adiantamento</b>: você já pagou algo adiantado a essa pessoa. <b>Ajuste Manual</b>: corrige um erro de um mês já fechado (lance no mês atual, nunca edite o lançamento antigo). Aparece como linha negativa no extrato do comissionado.
+          </p>
+          <div class="tbl-wrap"><table id="tbl-ajustes"><thead><tr>
+            <th>Data</th><th>Tipo</th><th>Comissionado</th><th>Negócio</th><th>Valor</th><th>Motivo</th><th></th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
       </div>
 
       <!-- EXTRATOS -->
@@ -383,14 +395,18 @@ tbody tr:hover{background:var(--card);}
         <div class="panel" style="max-width:520px">
           <div class="panel-head"><h3>Divisão da comissão recebida</h3></div>
           <p class="field-hint" style="margin-bottom:16px">
-            O valor que chega em cada Recebimento já vem sem a parte retida pelo banco na fonte. Sobre esse valor recebido, primeiro sai o imposto — o que sobra é o Lucro Bruto CBS. Desse Lucro Bruto, o Agente Banco fica com sua fatia (ex: 50%) e o restante é o Lucro Líquido CBS. A comissão da rede comercial é um percentual calculado sobre o Lucro Líquido CBS (não sobre o Lucro Bruto). Esses percentuais são aplicados automaticamente em todo recebimento novo (dá pra ajustar pontualmente em cada lançamento, se precisar).
+            O valor que chega em cada Recebimento já vem sem a parte retida pelo banco na fonte. Sobre esse valor recebido, primeiro sai o imposto — o que sobra é o Lucro Bruto. Desse Lucro Bruto, CorpLink e o Agente Banco ficam com suas fatias — as duas incidem em paralelo sobre o mesmo Lucro Bruto, uma não desconta da outra. O que sobra dos dois é o Lucro Líquido, e é sobre ele que a comissão da rede comercial é calculada (não sobre o Lucro Bruto). Esses percentuais são aplicados automaticamente em todo recebimento novo (dá pra ajustar pontualmente em cada lançamento, se precisar).
           </p>
           <div class="field">
             <label>% de imposto sobre o valor recebido</label>
             <input type="number" step="0.01" min="0" max="100" id="cfg-imposto-pct">
           </div>
           <div class="field">
-            <label>% retido pelo Agente Banco (sobre o valor já sem o imposto)</label>
+            <label>% CorpLink (sobre o Lucro Bruto)</label>
+            <input type="number" step="0.01" min="0" max="100" id="cfg-corplink-pct">
+          </div>
+          <div class="field">
+            <label>% retido pelo Agente Banco (sobre o Lucro Bruto)</label>
             <input type="number" step="0.01" min="0" max="100" id="cfg-agente-pct">
           </div>
           <div class="field-hint" id="cfg-preview" style="margin-bottom:16px"></div>
@@ -406,13 +422,42 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>Fechamento de mês</h3></div>
+          <p class="field-hint" style="margin-bottom:14px" id="cfg-mes-fechado-status"></p>
+          <p class="field-hint" style="margin-bottom:14px">
+            Recebimentos de um mês fechado (ou que já tenham algum repasse Pago) ficam travados — sem editar/excluir. Pra corrigir algo de um mês fechado, use um <b>Ajuste Manual</b> em Pagamentos, lançado no mês atual, em vez de mexer no lançamento antigo.
+          </p>
+          <div class="form-row" style="align-items:flex-end;max-width:360px">
+            <div class="field"><label>Fechar até o mês</label><input type="month" id="cfg-mes-fechado"></div>
+            <button class="btn btn-ghost btn-sm" onclick="saveMesFechado()">Aplicar</button>
+          </div>
+        </div>
+
+        <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>Imposto retido por mês</h3></div>
+          <p class="field-hint" style="margin-bottom:14px">Pra não ser pego de surpresa na guia da contabilidade — total de imposto já retido em cada mês de competência dos recebimentos.</p>
+          <div class="tbl-wrap"><table id="tbl-imposto-mes"><thead><tr><th>Mês</th><th>Imposto retido</th></tr></thead><tbody></tbody></table></div>
+        </div>
+
+        <div class="panel" style="max-width:520px">
           <div class="panel-head">
             <h3>Usuários com acesso</h3>
             <button class="btn btn-primary btn-sm" onclick="openUsuarioModal()">+ Novo usuário</button>
           </div>
-          <p class="field-hint" style="margin-bottom:14px">Login e senha agora são de verdade, gerenciados pelo Supabase (Authentication). Aqui você só libera QUAIS e-mails têm acesso ao CBS e a posição de cada um — a conta de login em si (senha etc.) é criada separadamente no painel do Supabase.</p>
+          <p class="field-hint" style="margin-bottom:14px">Login e senha agora são de verdade, gerenciados pelo Supabase (Authentication). Aqui você só libera QUAIS e-mails têm acesso ao Enterprise Capital e a posição de cada um — a conta de login em si (senha etc.) é criada separadamente no painel do Supabase.</p>
           <div class="tbl-wrap"><table id="tbl-usuarios"><thead><tr>
             <th>Nome</th><th>E-mail</th><th>Posição</th><th></th>
+          </tr></thead><tbody></tbody></table></div>
+        </div>
+
+        <div class="panel" style="max-width:520px">
+          <div class="panel-head">
+            <h3>Retiradas / pró-labore</h3>
+            <button class="btn btn-primary btn-sm" onclick="openRetiradaModal()">+ Nova retirada</button>
+          </div>
+          <p class="field-hint" style="margin-bottom:14px">Registro à parte, só pra controle interno — não entra em nenhum cálculo de comissão ou de Lucro Sócio. Serve pra anotar valores retirados por qualquer um de vocês (ex: pró-labore de quem opera o sistema), pra ter um lançamento próprio que justifica a movimentação.</p>
+          <div class="tbl-wrap"><table id="tbl-retiradas"><thead><tr>
+            <th>Data</th><th>Quem</th><th>Tipo</th><th>Valor</th><th></th>
           </tr></thead><tbody></tbody></table></div>
         </div>
       </div>
@@ -481,7 +526,7 @@ tbody tr:hover{background:var(--card);}
     <div class="field">
       <label>Indicado / vinculado a</label>
       <select id="mc-indicado"><option value="">Nenhum (entrou por conta própria)</option></select>
-      <div class="field-hint">Se essa pessoa entrou na rede através de outro comissionado (ex: vendem juntos, ou foi trazida por alguém), selecione aqui. É só pra referência — a divisão de comissão de cada negócio continua sendo configurada manualmente.</div>
+      <div class="field-hint">Se essa pessoa entrou na rede através de outro comissionado (ex: vendem juntos, ou foi trazida por alguém), selecione aqui. Ou, se esse cadastro representa a participação de um sócio como comissionado num negócio específico, vincule direto ao sócio na lista. É só pra referência — a divisão de comissão de cada negócio continua sendo configurada manualmente.</div>
     </div>
     <div class="field"><label>Observações</label><textarea id="mc-obs"></textarea></div>
     <div class="modal-foot">
@@ -499,16 +544,68 @@ tbody tr:hover{background:var(--card);}
     <div class="field"><label>Nome *</label><input type="text" id="mu-nome"></div>
     <div class="field">
       <label>E-mail *</label><input type="email" id="mu-email" autocomplete="off">
-      <div class="field-hint" id="mu-email-hint">Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao CBS, não cria a conta de login.</div>
+      <div class="field-hint" id="mu-email-hint">Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao Enterprise Capital, não cria a conta de login.</div>
     </div>
     <div class="field">
       <label>Posição</label>
-      <select id="mu-posicao"><option>Sócio</option><option>Comercial</option><option>Operacional</option></select>
-      <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa, e ela entra na divisão do Lucro Sócio. Comercial: funciona como um comissionado comum. Operacional: tem login pra operar o sistema, mas fica fora de tudo — não entra na divisão de lucro, não aparece nos Extratos nem em nenhum relatório.</div>
+      <select id="mu-posicao" onchange="toggleMuLucroPct()"><option>Sócio</option><option>Comercial</option><option>Operacional</option></select>
+      <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa, e ela entra na divisão do Lucro Sócio. Comercial: funciona como um comissionado comum (RLS já restringe pra quando o portal do parceiro existir). Operacional: tem login pra operar o sistema, mas o painel de Lucro fica escondido pra ela — não entra na divisão, não aparece nos Extratos.</div>
+    </div>
+    <div class="field" id="mu-lucro-pct-field">
+      <label>% no Lucro Sócio (opcional)</label>
+      <input type="number" step="0.01" min="0" max="100" id="mu-lucro-pct" placeholder="Ex: 60">
+      <div class="field-hint">Se você configurar essa % em TODOS os sócios e elas somarem 100%, o Lucro Sócio é dividido nessa proporção (ex: 60/40). Deixe em branco (ou até não somar 100% entre todos) pra manter divisão igual.</div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-usuario')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveUsuario()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: AJUSTE ============ -->
+<div class="modal-overlay" id="modal-ajuste">
+  <div class="modal">
+    <div class="modal-head"><h3 id="aj-titulo">Novo ajuste</h3><button class="modal-close" onclick="closeModal('modal-ajuste')">✕</button></div>
+    <input type="hidden" id="aj-id">
+    <div class="form-row">
+      <div class="field"><label>Tipo</label>
+        <select id="aj-tipo"><option>Estorno</option><option>Adiantamento</option><option>Ajuste Manual</option></select>
+      </div>
+      <div class="field"><label>Comissionado</label><select id="aj-comissionado"></select></div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Negócio (opcional)</label><select id="aj-negocio"><option value="">Nenhum</option></select></div>
+      <div class="field"><label>Valor (R$) *</label><input type="number" step="0.01" min="0.01" id="aj-valor"></div>
+    </div>
+    <div class="field"><label>Data *</label><input type="date" id="aj-data" style="max-width:200px"></div>
+    <div class="field"><label>Motivo</label><textarea id="aj-motivo"></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-ajuste')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveAjuste()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MODAL: RETIRADA ============ -->
+<div class="modal-overlay" id="modal-retirada">
+  <div class="modal">
+    <div class="modal-head"><h3 id="rt-titulo">Nova retirada</h3><button class="modal-close" onclick="closeModal('modal-retirada')">✕</button></div>
+    <input type="hidden" id="rt-id">
+    <div class="form-row">
+      <div class="field"><label>Quem</label><select id="rt-usuario"></select></div>
+      <div class="field"><label>Tipo</label>
+        <select id="rt-tipo"><option>Pró-labore</option><option>Retirada de lucro</option><option>Outro</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="field"><label>Valor (R$) *</label><input type="number" step="0.01" min="0" id="rt-valor"></div>
+      <div class="field"><label>Data *</label><input type="date" id="rt-data"></div>
+    </div>
+    <div class="field"><label>Observações</label><textarea id="rt-obs"></textarea></div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeModal('modal-retirada')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveRetirada()">Salvar</button>
     </div>
   </div>
 </div>
@@ -523,14 +620,15 @@ tbody tr:hover{background:var(--card);}
       <div class="field"><label>Data do recebimento *</label><input type="date" id="mr-data"></div>
       <div class="field"><label>Referência</label><input type="month" id="mr-ref"></div>
     </div>
-    <div class="form-row c3">
+    <div class="form-row c4">
       <div class="field"><label>Valor recebido (R$) *</label><input type="number" step="0.01" id="mr-valor" oninput="renderRecebimentoSplitPreview()"></div>
       <div class="field"><label>% de imposto</label><input type="number" step="0.01" min="0" max="100" id="mr-imposto-pct" oninput="renderRecebimentoSplitPreview()"></div>
+      <div class="field"><label>% CorpLink</label><input type="number" step="0.01" min="0" max="100" id="mr-corplink-pct" oninput="renderRecebimentoSplitPreview()"></div>
       <div class="field"><label>% retido pelo Agente Banco</label><input type="number" step="0.01" min="0" max="100" id="mr-agente-pct" oninput="renderRecebimentoSplitPreview()"></div>
     </div>
     <div class="field"><label>Observações</label><input type="text" id="mr-obs"></div>
     <div class="field">
-      <label>Divisão da rede (% definido no negócio, sobre o Lucro Líquido CBS)</label>
+      <label>Divisão da rede (% definido no negócio, sobre o Lucro Líquido)</label>
       <div class="split-box" id="mr-split-preview"></div>
     </div>
     <div class="modal-foot">
@@ -547,9 +645,14 @@ tbody tr:hover{background:var(--card);}
     <input type="hidden" id="mp-recid"><input type="hidden" id="mp-comid">
     <p style="font-size:13.5px;color:var(--text-dim);margin-bottom:14px" id="mp-desc"></p>
     <div class="field"><label>Data do pagamento</label><input type="date" id="mp-data"></div>
+    <div class="field">
+      <label>Comprovante (opcional)</label>
+      <input type="file" id="mp-comprovante" accept=".pdf,.png,.jpg,.jpeg">
+      <div class="field-hint">PDF ou imagem do PIX/TED — fica guardado num espaço privado do Supabase, só quem tem acesso ao Enterprise Capital consegue abrir.</div>
+    </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-pagar')">Cancelar</button>
-      <button class="btn btn-primary" onclick="confirmPagamento()">Confirmar pago</button>
+      <button class="btn btn-primary" id="btn-confirm-pagamento" onclick="confirmPagamento()">Confirmar pago</button>
     </div>
   </div>
 </div>
@@ -564,11 +667,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ================= DADOS (espelho local do Supabase, populado por refreshStore()) ================= */
-let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], config:{ agentePct:50, impostoPct:0 } };
+let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, mesFechadoAte:null } };
 let currentUser = null; // { email, nome, posicao }
 
 async function refreshStore(){
-  const [usuariosR, comissionadosR, negociosR, negComR, recebimentosR, splitsR, configR] = await Promise.all([
+  const [usuariosR, comissionadosR, negociosR, negComR, recebimentosR, splitsR, configR, retiradasR, ajustesR] = await Promise.all([
     sbClient.from('cbs_usuarios').select('*'),
     sbClient.from('cbs_comissionados').select('*'),
     sbClient.from('cbs_negocios').select('*'),
@@ -576,15 +679,18 @@ async function refreshStore(){
     sbClient.from('cbs_recebimentos').select('*'),
     sbClient.from('cbs_recebimento_splits').select('*'),
     sbClient.from('cbs_config').select('*').eq('id',1).maybeSingle(),
+    sbClient.from('cbs_retiradas').select('*'),
+    sbClient.from('cbs_ajustes').select('*'),
   ]);
-  const erro = usuariosR.error || comissionadosR.error || negociosR.error || negComR.error || recebimentosR.error || splitsR.error || configR.error;
+  const erro = usuariosR.error || comissionadosR.error || negociosR.error || negComR.error || recebimentosR.error || splitsR.error || configR.error || retiradasR.error || ajustesR.error;
   if(erro){ toast('Erro ao carregar dados: '+erro.message, 'err'); return; }
 
-  STORE.usuarios = (usuariosR.data||[]).map(u=>({ email:u.email, nome:u.nome, posicao:u.posicao }));
+  STORE.usuarios = (usuariosR.data||[]).map(u=>({ email:u.email, nome:u.nome, posicao:u.posicao,
+    lucroPct: u.lucro_pct!=null ? Number(u.lucro_pct) : null, comissionadoId: u.comissionado_id }));
 
   STORE.comissionados = (comissionadosR.data||[]).map(c=>({
     id:c.id, nome:c.nome, telefone:c.telefone, email:c.email, pix:c.pix, status:c.status,
-    indicadoPor:c.indicado_por, observacoes:c.observacoes, dataCadastro:c.created_at
+    indicadoPor:c.indicado_por, socioVinculado:c.socio_vinculado, observacoes:c.observacoes, dataCadastro:c.created_at
   }));
 
   const ncByNeg = {};
@@ -600,19 +706,31 @@ async function refreshStore(){
   (splitsR.data||[]).forEach(s=>{
     (splitsByRec[s.recebimento_id] = splitsByRec[s.recebimento_id]||[]).push({
       comissionadoId:s.comissionado_id, percentual:Number(s.percentual), valor:Number(s.valor),
-      statusPagamento:s.status_pagamento, dataPagamento:s.data_pagamento
+      statusPagamento:s.status_pagamento, dataPagamento:s.data_pagamento, comprovantePath:s.comprovante_path
     });
   });
+  STORE.config = configR.data
+    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, mesFechadoAte: configR.data.mes_fechado_ate||null }
+    : { impostoPct:0, agentePct:50, corplinkPct:20, mesFechadoAte:null };
+
   STORE.recebimentos = (recebimentosR.data||[]).map(r=>({
     id:r.id, negocioId:r.negocio_id, data:r.data, referencia:r.referencia,
     valorRecebido:Number(r.valor_recebido), percentualImposto:Number(r.percentual_imposto), valorImposto:Number(r.valor_imposto),
-    percentualAgente:Number(r.percentual_agente), valorAgente:Number(r.valor_agente), valorLiquido:Number(r.valor_liquido),
+    percentualAgente:Number(r.percentual_agente), valorAgente:Number(r.valor_agente),
+    percentualCorplink: r.percentual_corplink!=null ? Number(r.percentual_corplink) : STORE.config.corplinkPct,
+    valorCorplink: Number(r.valor_corplink||0), valorLiquido:Number(r.valor_liquido),
     observacoes:r.observacoes, dataCadastro:r.created_at, splits: splitsByRec[r.id]||[]
   }));
 
-  STORE.config = configR.data
-    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct) }
-    : { impostoPct:0, agentePct:50 };
+  STORE.retiradas = (retiradasR.data||[]).map(r=>({
+    id:r.id, usuarioEmail:r.usuario_email, tipo:r.tipo, valor:Number(r.valor), data:r.data,
+    observacoes:r.observacoes, dataCadastro:r.created_at
+  }));
+
+  STORE.ajustes = (ajustesR.data||[]).map(a=>({
+    id:a.id, tipo:a.tipo, comissionadoId:a.comissionado_id, negocioId:a.negocio_id, valor:Number(a.valor),
+    data:a.data, motivo:a.motivo, dataCadastro:a.created_at
+  }));
 }
 
 /* ================= HELPERS ================= */
@@ -637,6 +755,17 @@ function toast(msg,type){
 function comById(id){ return STORE.comissionados.find(c=>c.id===id); }
 function negById(id){ return STORE.negocios.find(n=>n.id===id); }
 function recById(id){ return STORE.recebimentos.find(r=>r.id===id); }
+// mês de competência do recebimento, no formato "AAAA-MM" (usa a data do lançamento).
+function mesRecebimento(r){ return (r.data||'').slice(0,7); }
+// travado = já tem algum repasse marcado como Pago, OU pertence a um mês já fechado — nesses casos
+// editar/excluir reescreveria histórico que já saiu da conta. Use um Ajuste Manual em vez disso.
+function recebimentoTravado(r){
+  if(!r) return false;
+  if((r.splits||[]).some(s=>s.statusPagamento==='Pago')) return true;
+  const mfa = STORE.config.mesFechadoAte;
+  if(mfa && mesRecebimento(r) && mesRecebimento(r) <= mfa) return true;
+  return false;
+}
 
 /* ================= LOGIN (Supabase Auth de verdade) ================= */
 async function doLogin(){
@@ -661,7 +790,7 @@ async function afterLogin(){
   if(!email){ return; }
   const { data: perfil, error } = await sbClient.from('cbs_usuarios').select('*').eq('email', email).maybeSingle();
   if(error || !perfil){
-    document.getElementById('login-err').textContent = 'Login válido, mas esse e-mail ainda não tem acesso liberado ao CBS. Fale com um sócio.';
+    document.getElementById('login-err').textContent = 'Login válido, mas esse e-mail ainda não tem acesso liberado ao Enterprise Capital. Fale com um sócio.';
     document.getElementById('login-err').style.display='block';
     await sbClient.auth.signOut();
     return;
@@ -714,6 +843,7 @@ function renderAll(){
   renderRecebimentos();
   renderRede();
   renderPagamentos();
+  renderAjustes();
   fillExtratoSelect();
   renderExtrato();
   renderConfig();
@@ -725,8 +855,43 @@ function renderConfig(){
   if(!el) return;
   el.value = STORE.config.agentePct;
   document.getElementById('cfg-imposto-pct').value = STORE.config.impostoPct;
+  document.getElementById('cfg-corplink-pct').value = STORE.config.corplinkPct;
   updateConfigPreview();
   renderUsuarios();
+  renderRetiradas();
+  renderMesFechadoStatus();
+  renderImpostoPorMes();
+}
+function renderMesFechadoStatus(){
+  const mfa = STORE.config.mesFechadoAte;
+  document.getElementById('cfg-mes-fechado-status').innerHTML = mfa
+    ? `Fechado até <b>${esc(fmtRef(mfa))}</b> (inclusive) — recebimentos até esse mês estão travados.`
+    : `Nenhum mês fechado ainda — todos os recebimentos (sem repasse pago) podem ser editados.`;
+  setVal('cfg-mes-fechado', mfa||'');
+}
+async function saveMesFechado(){
+  const novo = val('cfg-mes-fechado');
+  if(!novo){ toast('Selecione um mês.','err'); return; }
+  const atual = STORE.config.mesFechadoAte;
+  if(atual && novo < atual){
+    if(!confirm(`Isso REABRE recebimentos entre ${fmtRef(novo)} e ${fmtRef(atual)} pra edição. Só faça isso se tiver certeza. Continuar?`)) return;
+  }
+  const { error } = await sbClient.from('cbs_config').update({ mes_fechado_ate: novo }).eq('id',1);
+  if(error){ toast('Erro: '+error.message,'err'); return; }
+  await refreshStore(); renderAll(); toast(`Mês fechado até ${fmtRef(novo)}.`);
+}
+function renderImpostoPorMes(){
+  const tb = document.querySelector('#tbl-imposto-mes tbody');
+  if(!tb) return;
+  const porMes = {};
+  STORE.recebimentos.forEach(r=>{
+    const mes = mesRecebimento(r);
+    if(!mes) return;
+    porMes[mes] = (porMes[mes]||0) + Number(r.valorImposto||0);
+  });
+  const meses = Object.keys(porMes).sort().reverse();
+  tb.innerHTML = meses.length ? meses.map(m=>`<tr><td>${esc(fmtRef(m))}</td><td>${fmtR$(porMes[m])}</td></tr>`).join('')
+    : `<tr class="empty-row"><td colspan="2">Nenhum recebimento lançado ainda.</td></tr>`;
 }
 function renderUsuarios(){
   const tb = document.querySelector('#tbl-usuarios tbody');
@@ -736,12 +901,15 @@ function renderUsuarios(){
     <tr>
       <td><b>${esc(u.nome)}</b></td>
       <td>${esc(u.email)}</td>
-      <td><span class="badge ${u.posicao==='Sócio'?'green':u.posicao==='Operacional'?'gray':'blue'}">${esc(u.posicao)}</span></td>
+      <td><span class="badge ${u.posicao==='Sócio'?'green':u.posicao==='Operacional'?'gray':'blue'}">${esc(u.posicao)}</span>${u.posicao==='Sócio'&&u.lucroPct!=null?` <small style="color:var(--text-faint)">${u.lucroPct}% do lucro</small>`:''}</td>
       <td><div class="row-actions">
         <button class="icon-btn" onclick="openUsuarioModal('${esc(u.email)}')" title="Editar">✎</button>
         <button class="icon-btn" onclick="deleteUsuario('${esc(u.email)}')" title="Excluir">🗑</button>
       </div></td>
     </tr>`).join('');
+}
+function toggleMuLucroPct(){
+  document.getElementById('mu-lucro-pct-field').style.display = val('mu-posicao')==='Sócio' ? 'block' : 'none';
 }
 function openUsuarioModal(email){
   document.getElementById('mu-titulo').textContent = email ? 'Editar usuário' : 'Novo usuário';
@@ -750,26 +918,29 @@ function openUsuarioModal(email){
   if(email){
     const u = STORE.usuarios.find(u=>u.email===email);
     setVal('mu-nome', u.nome); setVal('mu-email', u.email); setVal('mu-posicao', u.posicao||'Sócio');
+    setVal('mu-lucro-pct', u.lucroPct);
     emailInput.disabled = true;
     document.getElementById('mu-email-hint').textContent = 'E-mail não pode ser trocado aqui (é a chave de acesso) — pra mudar, exclua e cadastre de novo.';
   } else {
-    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-posicao','Sócio');
+    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-posicao','Sócio'); setVal('mu-lucro-pct','');
     emailInput.disabled = false;
-    document.getElementById('mu-email-hint').textContent = 'Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao CBS, não cria a conta de login.';
+    document.getElementById('mu-email-hint').textContent = 'Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao Enterprise Capital, não cria a conta de login.';
   }
+  toggleMuLucroPct();
   document.getElementById('modal-usuario').classList.add('open');
 }
 async function saveUsuario(){
   const nome = val('mu-nome').trim();
   const email = val('mu-email').trim().toLowerCase();
   const posicao = val('mu-posicao');
+  const lucroPct = (posicao==='Sócio' && val('mu-lucro-pct')!=='') ? Number(val('mu-lucro-pct')) : null;
   const originalEmail = val('mu-original-email');
   if(!nome || !email){ toast('Preencha nome e e-mail.','err'); return; }
   let error;
   if(originalEmail){
-    ({ error } = await sbClient.from('cbs_usuarios').update({ nome, posicao }).eq('email', originalEmail));
+    ({ error } = await sbClient.from('cbs_usuarios').update({ nome, posicao, lucro_pct: lucroPct }).eq('email', originalEmail));
   } else {
-    ({ error } = await sbClient.from('cbs_usuarios').insert({ email, nome, posicao }));
+    ({ error } = await sbClient.from('cbs_usuarios').insert({ email, nome, posicao, lucro_pct: lucroPct }));
   }
   if(error){
     toast('Erro ao salvar: ' + (error.message.includes('duplicate') ? 'já existe um usuário com esse e-mail.' : error.message), 'err');
@@ -781,29 +952,90 @@ async function saveUsuario(){
 async function deleteUsuario(email){
   if(STORE.usuarios.length<=1){ toast('Precisa manter pelo menos um usuário com acesso.','err'); return; }
   if(currentUser && email===currentUser.email){ toast('Você não pode remover o próprio acesso.','err'); return; }
-  if(!confirm('Excluir este usuário? Ele perde o acesso ao CBS imediatamente (a conta de login no Supabase continua existindo).')) return;
+  if(!confirm('Excluir este usuário? Ele perde o acesso ao Enterprise Capital imediatamente (a conta de login no Supabase continua existindo).')) return;
   const { error } = await sbClient.from('cbs_usuarios').delete().eq('email', email);
+  if(error){ toast('Erro ao excluir: '+error.message,'err'); return; }
+  await refreshStore(); renderAll();
+}
+
+/* ================= RETIRADAS / PRÓ-LABORE ================= */
+// Registro à parte, só pra controle interno — não entra em nenhum cálculo de comissão ou de Lucro Sócio.
+function renderRetiradas(){
+  const tb = document.querySelector('#tbl-retiradas tbody');
+  if(!tb) return;
+  const list = [...STORE.retiradas].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  tb.innerHTML = list.length ? list.map(r=>{
+    const u = STORE.usuarios.find(u=>u.email===r.usuarioEmail);
+    return `<tr>
+      <td>${fmtData(r.data)}</td>
+      <td>${esc(u?u.nome:r.usuarioEmail)}</td>
+      <td>${esc(r.tipo)}</td>
+      <td>${fmtR$(r.valor)}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="openRetiradaModal(${r.id})" title="Editar">✎</button>
+        <button class="icon-btn" onclick="deleteRetirada(${r.id})" title="Excluir">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="5">Nenhuma retirada registrada.</td></tr>`;
+}
+function fillRetiradaUsuarioSelect(selected){
+  const sel = document.getElementById('rt-usuario');
+  const list = [...STORE.usuarios].sort((a,b)=>a.nome.localeCompare(b.nome));
+  sel.innerHTML = list.map(u=>`<option value="${esc(u.email)}">${esc(u.nome)}</option>`).join('');
+  sel.value = selected || (currentUser ? currentUser.email : '') || (list[0]?list[0].email:'');
+}
+function openRetiradaModal(id){
+  document.getElementById('rt-titulo').textContent = id ? 'Editar retirada' : 'Nova retirada';
+  setVal('rt-id', id||'');
+  if(id){
+    const r = STORE.retiradas.find(r=>r.id===id);
+    fillRetiradaUsuarioSelect(r.usuarioEmail);
+    setVal('rt-tipo', r.tipo); setVal('rt-valor', r.valor); setVal('rt-data', r.data); setVal('rt-obs', r.observacoes);
+  } else {
+    fillRetiradaUsuarioSelect();
+    setVal('rt-tipo','Pró-labore'); setVal('rt-valor',''); setVal('rt-data', todayISO()); setVal('rt-obs','');
+  }
+  document.getElementById('modal-retirada').classList.add('open');
+}
+async function saveRetirada(){
+  const usuarioEmail = val('rt-usuario');
+  const tipo = val('rt-tipo');
+  const valor = Number(val('rt-valor'));
+  const data = val('rt-data');
+  const id = val('rt-id');
+  if(!usuarioEmail || !data || !valor || valor<=0){ toast('Preencha quem, data e um valor maior que zero.','err'); return; }
+  const payload = { usuario_email: usuarioEmail, tipo, valor, data, observacoes: val('rt-obs').trim()||null };
+  let error;
+  if(id){ ({ error } = await sbClient.from('cbs_retiradas').update(payload).eq('id', Number(id))); }
+  else{ ({ error } = await sbClient.from('cbs_retiradas').insert(payload)); }
+  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
+  toast(id ? 'Retirada atualizada.' : 'Retirada registrada.');
+  await refreshStore(); closeModal('modal-retirada'); renderAll();
+}
+async function deleteRetirada(id){
+  if(!confirm('Excluir este registro de retirada?')) return;
+  const { error } = await sbClient.from('cbs_retiradas').delete().eq('id', id);
   if(error){ toast('Erro ao excluir: '+error.message,'err'); return; }
   await refreshStore(); renderAll();
 }
 function updateConfigPreview(){
   const impostoPct = Number(document.getElementById('cfg-imposto-pct').value)||0;
   const agentePct = Number(document.getElementById('cfg-agente-pct').value)||0;
+  const corplinkPct = Number(document.getElementById('cfg-corplink-pct').value)||0;
   const recebido = 1000;
-  const imposto = round2(recebido*impostoPct/100);
-  const lucroBruto = round2(recebido - imposto);
-  const agente = round2(lucroBruto*agentePct/100);
-  const lucroLiquido = round2(lucroBruto - agente);
+  const c = calcCascataRecebimento(recebido, impostoPct, agentePct, corplinkPct);
   document.getElementById('cfg-preview').textContent =
-    `Exemplo: em um recebimento de ${fmtR$(recebido)} — imposto: ${fmtR$(imposto)} — Lucro Bruto CBS: ${fmtR$(lucroBruto)}. O Agente Banco fica com ${fmtR$(agente)}; sobra o Lucro Líquido CBS de ${fmtR$(lucroLiquido)}, que é a base da comissão da rede.`;
+    `Exemplo: em um recebimento de ${fmtR$(recebido)} — imposto: ${fmtR$(c.valorImposto)} — Lucro Bruto: ${fmtR$(c.lucroBrutoCBS)}. Do Lucro Bruto, CorpLink fica com ${fmtR$(c.valorCorplink)} e o Agente Banco fica com ${fmtR$(c.valorAgente)}; sobra o Lucro Líquido de ${fmtR$(c.valorLiquido)}, que é a base da comissão da rede.`;
 }
-document.addEventListener('input', e=>{ if(e.target && (e.target.id==='cfg-agente-pct'||e.target.id==='cfg-imposto-pct')) updateConfigPreview(); });
+document.addEventListener('input', e=>{ if(e.target && (e.target.id==='cfg-agente-pct'||e.target.id==='cfg-imposto-pct'||e.target.id==='cfg-corplink-pct')) updateConfigPreview(); });
 async function saveConfig(){
   const pct = Number(document.getElementById('cfg-agente-pct').value);
   const impostoPct = Number(document.getElementById('cfg-imposto-pct').value);
+  const corplinkPct = Number(document.getElementById('cfg-corplink-pct').value);
   if(isNaN(pct) || pct<0 || pct>100){ toast('Informe um percentual entre 0 e 100 pro Agente Banco.','err'); return; }
   if(isNaN(impostoPct) || impostoPct<0 || impostoPct>100){ toast('Informe um percentual de imposto entre 0 e 100.','err'); return; }
-  const { error } = await sbClient.from('cbs_config').update({ agente_pct: pct, imposto_pct: impostoPct }).eq('id',1);
+  if(isNaN(corplinkPct) || corplinkPct<0 || corplinkPct>100){ toast('Informe um percentual entre 0 e 100 pro CorpLink.','err'); return; }
+  const { error } = await sbClient.from('cbs_config').update({ agente_pct: pct, imposto_pct: impostoPct, corplink_pct: corplinkPct }).eq('id',1);
   if(error){ toast('Erro: '+error.message,'err'); return; }
   await refreshStore(); renderAll(); toast('Configuração salva.');
 }
@@ -811,20 +1043,22 @@ async function saveConfig(){
 // marcado como Pago, pra nunca reescrever um valor que já foi de fato pago (risco apontado em revisão).
 async function recalcularRecebimentos(){
   if(!STORE.recebimentos.length){ toast('Nenhum recebimento lançado ainda.','err'); return; }
-  const elegiveis = STORE.recebimentos.filter(r => !(r.splits||[]).some(s=>s.statusPagamento==='Pago'));
+  const elegiveis = STORE.recebimentos.filter(r => !recebimentoTravado(r));
   const bloqueados = STORE.recebimentos.length - elegiveis.length;
-  if(!elegiveis.length){ toast('Todos os recebimentos têm repasses já pagos — nenhum foi recalculado.','err'); return; }
+  if(!elegiveis.length){ toast('Todos os recebimentos estão travados (repasse pago ou mês fechado) — nenhum foi recalculado.','err'); return; }
   const msg = bloqueados>0
-    ? `Isso vai recalcular ${elegiveis.length} recebimento(s) sem repasses pagos. ${bloqueados} recebimento(s) com repasses já pagos serão pulados. Continuar?`
+    ? `Isso vai recalcular ${elegiveis.length} recebimento(s) não travados. ${bloqueados} recebimento(s) travados (repasse pago ou mês fechado) serão pulados. Continuar?`
     : `Isso vai recalcular os ${elegiveis.length} recebimento(s) já lançados com a fórmula atual (mantendo os percentuais de cada um). Continuar?`;
   if(!confirm(msg)) return;
   for(const r of elegiveis){
     const impostoPct = r.percentualImposto!=null ? r.percentualImposto : STORE.config.impostoPct;
     const agentePct = r.percentualAgente!=null ? r.percentualAgente : STORE.config.agentePct;
-    const c = calcCascataRecebimento(Number(r.valorRecebido||0), impostoPct, agentePct);
+    const corplinkPct = r.percentualCorplink!=null ? r.percentualCorplink : STORE.config.corplinkPct;
+    const c = calcCascataRecebimento(Number(r.valorRecebido||0), impostoPct, agentePct, corplinkPct);
     await sbClient.from('cbs_recebimentos').update({
       percentual_imposto: impostoPct, valor_imposto: c.valorImposto,
-      percentual_agente: agentePct, valor_agente: c.valorAgente, valor_liquido: c.valorLiquido
+      percentual_agente: agentePct, valor_agente: c.valorAgente,
+      percentual_corplink: corplinkPct, valor_corplink: c.valorCorplink, valor_liquido: c.valorLiquido
     }).eq('id', r.id);
     for(const s of (r.splits||[])){
       const novoValor = round2(c.valorLiquido * (Number(s.percentual)||0) / 100);
@@ -833,7 +1067,7 @@ async function recalcularRecebimentos(){
     }
   }
   await refreshStore(); renderAll();
-  toast(bloqueados>0 ? `${elegiveis.length} recalculado(s), ${bloqueados} pulado(s) por já ter pagamento.` : 'Recebimentos recalculados com a fórmula atual.');
+  toast(bloqueados>0 ? `${elegiveis.length} recalculado(s), ${bloqueados} pulado(s) por estarem travados.` : 'Recebimentos recalculados com a fórmula atual.');
 }
 
 /* ================= CALC HELPERS ================= */
@@ -847,7 +1081,7 @@ function allSplits(){
         recebimentoId:r.id, negocioId:r.negocioId, comissionadoId:s.comissionadoId,
         percentual:s.percentual, valor:s.valor, statusPagamento:s.statusPagamento,
         dataPagamento:s.dataPagamento, dataRecebimento:r.data, referencia:r.referencia,
-        valorRecebido:r.valorRecebido, empresa: neg?neg.empresaCliente:'—'
+        valorRecebido:r.valorRecebido, empresa: neg?neg.empresaCliente:'—', comprovantePath:s.comprovantePath
       });
     });
   });
@@ -859,46 +1093,70 @@ function totals(){
   const totalRecebido = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorRecebido||0),0);
   const totalImposto = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorImposto||0),0);
   const totalAgente = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorAgente||0),0);
+  const totalCorplink = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorCorplink||0),0);
   const lucroBrutoCBS = totalRecebido - totalImposto;
-  const totalLiquidoEmpresa = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorLiquido!=null?r.valorLiquido:r.valorRecebido),0); // Lucro Líquido CBS (já sem o Agente Banco)
+  const totalLiquidoEmpresa = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorLiquido!=null?r.valorLiquido:r.valorRecebido),0); // Lucro Líquido (já sem Agente Banco e CorpLink)
   const repassadoPago = splits.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0);
   const repassadoPendente = splits.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0);
   const saldoLiquido = totalLiquidoEmpresa - repassadoPago;
-  return {negociosAtivos, totalRecebido, totalImposto, totalAgente, lucroBrutoCBS, totalLiquidoEmpresa, repassadoPago, repassadoPendente, saldoLiquido};
+  return {negociosAtivos, totalRecebido, totalImposto, totalAgente, totalCorplink, lucroBrutoCBS, totalLiquidoEmpresa, repassadoPago, repassadoPendente, saldoLiquido};
 }
-// Lucro Sócio = o que sobra do Lucro Líquido CBS (que já é sem o Agente Banco) depois da comissão de toda a rede — dividido entre os sócios.
+// dado um total de lucro (pode ser filtrado por período) e o e-mail do sócio, calcula a parte dele —
+// mesma regra do calcLucro(): usa a % configurada em cada sócio se somarem 100%, senão divide igual.
+function parteDoSocio(email, totalLucro){
+  const sociosBase = STORE.usuarios.filter(u=>u.posicao==='Sócio');
+  const somaPct = round2(sociosBase.reduce((a,s)=>a+(Number(s.lucroPct)||0),0));
+  const usaPercentual = sociosBase.length>0 && Math.abs(somaPct-100) < 0.01;
+  if(usaPercentual){
+    const s = sociosBase.find(s=>s.email===email);
+    return round2(totalLucro * (s?Number(s.lucroPct):0) / 100);
+  }
+  return round2(totalLucro/(sociosBase.length||1));
+}
+// Lucro Sócio = o que sobra do Lucro Líquido CBS (que já é sem o Agente Banco) depois da comissão de toda a rede.
+// Dividido pela % configurada em cada sócio (lucroPct) se elas somarem 100%; senão, cai pra divisão igual entre todos.
 function calcLucro(){
   const t = totals();
   const totalComissoesRede = t.repassadoPago + t.repassadoPendente;
   const lucro = t.totalLiquidoEmpresa - totalComissoesRede;
-  const socios = STORE.usuarios.filter(u=>u.posicao==='Sócio');
-  const porSocio = socios.length ? lucro/socios.length : 0;
-  return {totalComissoesRede, lucro, socios, porSocio};
+  const sociosBase = STORE.usuarios.filter(u=>u.posicao==='Sócio');
+  const somaPct = round2(sociosBase.reduce((a,s)=>a+(Number(s.lucroPct)||0),0));
+  const usaPercentual = sociosBase.length>0 && Math.abs(somaPct-100) < 0.01;
+  const socios = sociosBase.map(s=>({
+    ...s,
+    parte: usaPercentual ? round2(lucro*(Number(s.lucroPct)||0)/100) : (sociosBase.length ? round2(lucro/sociosBase.length) : 0)
+  }));
+  return {totalComissoesRede, lucro, socios, usaPercentual, somaPct};
 }
 
 /* ================= DASHBOARD ================= */
 function renderDashboard(){
   const t = totals();
   const l = calcLucro();
+  const ehOperacional = currentUser && currentUser.posicao==='Operacional';
   const cards = [
     {lbl:'Negócios ativos', val:t.negociosAtivos, cls:''},
     {lbl:'Total recebido', val:fmtR$(t.totalRecebido), cls:'blue'},
     {lbl:'Imposto retido', val:fmtR$(t.totalImposto), cls:'warn'},
-    {lbl:'Lucro bruto CBS', val:fmtR$(t.lucroBrutoCBS), cls:'blue'},
+    {lbl:'Lucro bruto Enterprise Capital', val:fmtR$(t.lucroBrutoCBS), cls:'blue'},
+    {lbl:'CorpLink', val:fmtR$(t.totalCorplink), cls:''},
     {lbl:'Agente banco', val:fmtR$(t.totalAgente), cls:''},
-    {lbl:'Lucro líquido CBS', val:fmtR$(t.totalLiquidoEmpresa), cls:'blue'},
+    {lbl:'Lucro líquido Enterprise Capital', val:fmtR$(t.totalLiquidoEmpresa), cls:'blue'},
     {lbl:'Comissionamento rede', val:fmtR$(l.totalComissoesRede), cls:''},
     {lbl:'Pagamentos realizados', val:fmtR$(t.repassadoPago), cls:'green'},
     {lbl:'Pagamentos pendentes', val:fmtR$(t.repassadoPendente), cls:'warn'},
-    {lbl:'Lucro sócio', val:fmtR$(l.lucro), cls:'green'},
   ];
+  if(!ehOperacional) cards.push({lbl:'Lucro sócio', val:fmtR$(l.lucro), cls:'green'});
   document.getElementById('dash-cards').innerHTML = cards.map(c=>`
     <div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>
   `).join('');
 
-  document.getElementById('dash-lucro').innerHTML = `
-    <div class="tbl-wrap"><table><thead><tr><th>Sócio</th><th>Parte no Lucro Sócio</th></tr></thead><tbody>
-      ${l.socios.length ? l.socios.map(s=>`<tr><td>${esc(s.nome)}</td><td><b style="color:var(--accent)">${fmtR$(l.porSocio)}</b></td></tr>`).join('')
+  // painel de Lucro por Sócio fica oculto pra Operacional — é reporte de sócio, não algo que ele precisa pra operar
+  document.getElementById('painel-lucro-socio').style.display = ehOperacional ? 'none' : 'block';
+  if(!ehOperacional) document.getElementById('dash-lucro').innerHTML = `
+    ${l.socios.length && !l.usaPercentual && l.somaPct>0 ? `<p class="field-hint" style="margin-bottom:10px">Os % de lucro configurados somam ${l.somaPct}% (não 100%) — usando divisão igual entre os sócios por enquanto. Ajuste em Configurações → Usuários.</p>` : ''}
+    <div class="tbl-wrap"><table><thead><tr><th>Sócio</th>${l.usaPercentual?'<th>%</th>':''}<th>Parte no Lucro Sócio</th></tr></thead><tbody>
+      ${l.socios.length ? l.socios.map(s=>`<tr><td>${esc(s.nome)}</td>${l.usaPercentual?`<td>${s.lucroPct}%</td>`:''}<td><b style="color:var(--accent)">${fmtR$(s.parte)}</b></td></tr>`).join('')
         : `<tr class="empty-row"><td colspan="2">Nenhum usuário marcado como Sócio em Configurações.</td></tr>`}
     </tbody></table></div>`;
 
@@ -1069,8 +1327,10 @@ function renderRede(){
     const pendente = meus.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0);
     const cadeia = cadeiaIndicacao(c);
     const indicados = STORE.comissionados.filter(x=>x.indicadoPor===c.id);
+    const socioVinc = c.socioVinculado ? STORE.usuarios.find(u=>u.email===c.socioVinculado) : null;
+    const totalAjustes = ajustesDoComissionado(c.id).reduce((a,j)=>a+Number(j.valor||0),0);
     return `<tr>
-      <td class="name-cell"><b>${esc(c.nome)}</b>${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}</td>
+      <td class="name-cell"><b>${esc(c.nome)}</b>${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}</td>
       <td>${esc(c.telefone||c.email||'—')}</td>
       <td>${statusBadge(c.status)}</td>
       <td>${negs}</td>
@@ -1085,8 +1345,10 @@ function renderRede(){
 }
 function fillIndicadoSelect(excludeId){
   const sel = document.getElementById('mc-indicado');
+  const socios = STORE.usuarios.filter(u=>u.posicao==='Sócio');
   sel.innerHTML = `<option value="">Nenhum (entrou por conta própria)</option>` +
-    STORE.comissionados.filter(c=>c.id!==excludeId).map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+    STORE.comissionados.filter(c=>c.id!==excludeId).map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('') +
+    (socios.length ? `<optgroup label="Sócios">${socios.map(u=>`<option value="socio:${esc(u.email)}">${esc(u.nome)} (sócio)</option>`).join('')}</optgroup>` : '');
 }
 function openComissionadoModal(id){
   document.getElementById('mc-titulo').textContent = id ? 'Editar comissionado' : 'Novo comissionado';
@@ -1096,7 +1358,7 @@ function openComissionadoModal(id){
     const c = comById(id);
     setVal('mc-nome',c.nome); setVal('mc-tel',c.telefone); setVal('mc-email',c.email);
     setVal('mc-pix',c.pix); setVal('mc-status',c.status); setVal('mc-obs',c.observacoes);
-    setVal('mc-indicado', c.indicadoPor||'');
+    setVal('mc-indicado', c.indicadoPor ? c.indicadoPor : (c.socioVinculado ? 'socio:'+c.socioVinculado : ''));
   } else {
     ['mc-nome','mc-tel','mc-email','mc-pix','mc-obs'].forEach(id=>setVal(id,''));
     setVal('mc-status','Ativo'); setVal('mc-indicado','');
@@ -1107,7 +1369,9 @@ async function saveComissionado(){
   const nome = val('mc-nome').trim();
   if(!nome){ toast('Informe o nome.','err'); return; }
   const id = val('mc-id');
-  const indicadoPor = val('mc-indicado') ? Number(val('mc-indicado')) : null;
+  const indicadoVal = val('mc-indicado');
+  const vinculoSocio = indicadoVal.startsWith('socio:') ? indicadoVal.slice(6) : null;
+  const indicadoPor = (indicadoVal && !vinculoSocio) ? Number(indicadoVal) : null;
   if(id && indicadoPor){
     let atual = comById(indicadoPor), guard=0;
     while(atual && guard++<20){
@@ -1116,7 +1380,7 @@ async function saveComissionado(){
     }
   }
   const payload = { nome, telefone: val('mc-tel').trim()||null, email: val('mc-email').trim()||null, pix: val('mc-pix').trim()||null,
-    status: val('mc-status'), observacoes: val('mc-obs').trim()||null, indicado_por: indicadoPor };
+    status: val('mc-status'), observacoes: val('mc-obs').trim()||null, indicado_por: indicadoPor, socio_vinculado: vinculoSocio };
   let error;
   if(id){ ({ error } = await sbClient.from('cbs_comissionados').update(payload).eq('id', Number(id))); }
   else{ ({ error } = await sbClient.from('cbs_comissionados').insert(payload)); }
@@ -1140,16 +1404,20 @@ function renderRecebimentos(){
   tb.innerHTML = list.length ? list.map(r=>{
     const n = negById(r.negocioId);
     const repasse = (r.splits||[]).reduce((a,s)=>a+Number(s.valor||0),0);
+    const travado = recebimentoTravado(r);
     return `<tr>
       <td>${fmtData(r.data)}</td>
       <td>${esc(n?n.empresaCliente:'—')}</td>
       <td>${esc(fmtRef(r.referencia))||'—'}</td>
       <td>${fmtR$(r.valorRecebido)}</td>
+      <td>${fmtR$(r.valorCorplink)}</td>
       <td>${fmtR$(r.valorAgente)}</td>
       <td>${fmtR$(repasse)}</td>
       <td><div class="row-actions">
-        <button class="icon-btn" onclick="openRecebimentoModal(${r.id})" title="Editar">✎</button>
-        <button class="icon-btn" onclick="deleteRecebimento(${r.id})" title="Excluir">🗑</button>
+        ${travado
+          ? `<span class="icon-btn" title="Travado — já tem repasse pago ou é de um mês fechado. Use um Ajuste em Pagamentos pra corrigir.">🔒</span>`
+          : `<button class="icon-btn" onclick="openRecebimentoModal(${r.id})" title="Editar">✎</button>
+             <button class="icon-btn" onclick="deleteRecebimento(${r.id})" title="Excluir">🗑</button>`}
       </div></td>
     </tr>`;
   }).join('') : `<tr class="empty-row"><td colspan="7">Nenhum recebimento lançado ainda.</td></tr>`;
@@ -1162,14 +1430,16 @@ function fillNegocioSelect(){
     STORE.negocios.filter(n=>n.status!=='Cancelado').map(n=>`<option value="${n.id}">${esc(n.empresaCliente)}</option>`).join('');
 }
 // monta as linhas de split sempre a partir do % ATUAL do negócio (fonte única de verdade — não dá pra editar % aqui no Recebimento).
-// Preserva status/data de pagamento já lançados pra quem já estava no split (comparando por comissionadoId).
+// Preserva status/data de pagamento/comprovante já lançados pra quem já estava no split (comparando por comissionadoId) —
+// importante: saveRecebimento() apaga e recria os splits a cada salvamento, então sem isso o comprovante se perderia.
 function buildSplitRowsFromNegocio(negocioId, existingSplits){
   const n = negById(negocioId);
   if(!n) return [];
   return (n.comissionados||[]).map(c=>{
     const prev = (existingSplits||[]).find(s=>s.comissionadoId===c.comissionadoId);
     return { comissionadoId:c.comissionadoId, percentual:c.percentual,
-      statusPagamento: prev ? prev.statusPagamento : 'Pendente', dataPagamento: prev ? prev.dataPagamento : null };
+      statusPagamento: prev ? prev.statusPagamento : 'Pendente', dataPagamento: prev ? prev.dataPagamento : null,
+      comprovantePath: prev ? prev.comprovantePath : null };
   });
 }
 function onRecebimentoNegocioChange(){
@@ -1177,26 +1447,30 @@ function onRecebimentoNegocioChange(){
   mrSplitRows = buildSplitRowsFromNegocio(negId, mrSplitRows);
   renderRecebimentoSplitPreview();
 }
-// cascata (conferida na planilha do usuário): Recebido -> Imposto -> Lucro Bruto CBS.
-// Do Lucro Bruto CBS, o Agente Banco fica com sua fatia (ex: 50%) e o restante é o Lucro Líquido CBS (a outra fatia).
-// A comissão da rede é um % calculado SOBRE O LUCRO LÍQUIDO CBS (não sobre o Lucro Bruto).
+// cascata: Recebido -> Imposto -> Lucro Bruto.
+// Do Lucro Bruto, CorpLink e Agente Banco ficam com suas fatias EM PARALELO (as duas incidem sobre o mesmo
+// Lucro Bruto, não uma sobre a outra) — o que sobra dos dois é o Lucro Líquido.
+// A comissão da rede é um % calculado SOBRE O LUCRO LÍQUIDO (não sobre o Lucro Bruto).
 // Cada etapa é arredondada em centavos (round2) pra não acumular diferença de fração de centavo nos totais.
-function calcCascataRecebimento(valorRecebido, impostoPct, agentePct){
+function calcCascataRecebimento(valorRecebido, impostoPct, agentePct, corplinkPct){
   const valorImposto = round2(valorRecebido * impostoPct / 100);
   const lucroBrutoCBS = round2(valorRecebido - valorImposto);
   const valorAgente = round2(lucroBrutoCBS * agentePct / 100);
-  const valorLiquido = round2(lucroBrutoCBS - valorAgente); // Lucro Líquido CBS
-  return { valorImposto, lucroBrutoCBS, valorAgente, valorLiquido };
+  const valorCorplink = round2(lucroBrutoCBS * (Number(corplinkPct)||0) / 100);
+  const valorLiquido = round2(lucroBrutoCBS - valorAgente - valorCorplink); // Lucro Líquido
+  return { valorImposto, lucroBrutoCBS, valorAgente, valorCorplink, valorLiquido };
 }
 function renderRecebimentoSplitPreview(){
   const box = document.getElementById('mr-split-preview');
   const valorTotal = Number(val('mr-valor'))||0;
   const impostoPct = Number(val('mr-imposto-pct'))||0;
   const agentePct = Number(val('mr-agente-pct'))||0;
-  const c = calcCascataRecebimento(valorTotal, impostoPct, agentePct);
+  const corplinkPct = Number(val('mr-corplink-pct'))||0;
+  const c = calcCascataRecebimento(valorTotal, impostoPct, agentePct, corplinkPct);
   const resumo = `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
-    Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto CBS: <b>${fmtR$(c.lucroBrutoCBS)}</b> — Agente Banco (${agentePct||0}%): <b>${fmtR$(c.valorAgente)}</b> — Lucro Líquido CBS: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
-    <div style="margin-top:4px;color:var(--text-faint)">A comissão da rede abaixo é calculada sobre o Lucro Líquido CBS.</div>
+    Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto: <b>${fmtR$(c.lucroBrutoCBS)}</b><br>
+    Do Lucro Bruto — CorpLink (${corplinkPct||0}%): <b>${fmtR$(c.valorCorplink)}</b> — Agente Banco (${agentePct||0}%): <b>${fmtR$(c.valorAgente)}</b> — Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
+    <div style="margin-top:4px;color:var(--text-faint)">A comissão da rede abaixo é calculada sobre o Lucro Líquido.</div>
   </div>`;
   if(!mrSplitRows.length){
     box.innerHTML = resumo + `<div style="font-size:12.5px;color:var(--text-faint)">Selecione um negócio com comissionados configurados.</div>`;
@@ -1221,6 +1495,10 @@ function editarPercentuaisDoNegocio(){
   openNegocioModal(negId);
 }
 function openRecebimentoModal(id){
+  if(id && recebimentoTravado(recById(id))){
+    toast('Recebimento travado — já tem repasse pago ou é de um mês fechado. Lance um Ajuste em Pagamentos pra corrigir, sem alterar o histórico.','err');
+    return;
+  }
   fillNegocioSelect();
   document.getElementById('mr-titulo').textContent = id ? 'Editar recebimento' : 'Lançar recebimento';
   setVal('mr-id', id||'');
@@ -1228,11 +1506,14 @@ function openRecebimentoModal(id){
     const r = recById(id);
     setVal('mr-negocio', r.negocioId); setVal('mr-data', r.data); setVal('mr-ref', r.referencia); setVal('mr-valor', r.valorRecebido);
     setVal('mr-imposto-pct', r.percentualImposto!=null ? r.percentualImposto : STORE.config.impostoPct);
-    setVal('mr-agente-pct', r.percentualAgente!=null ? r.percentualAgente : STORE.config.agentePct); setVal('mr-obs', r.observacoes);
+    setVal('mr-agente-pct', r.percentualAgente!=null ? r.percentualAgente : STORE.config.agentePct);
+    setVal('mr-corplink-pct', r.percentualCorplink!=null ? r.percentualCorplink : STORE.config.corplinkPct);
+    setVal('mr-obs', r.observacoes);
     mrSplitRows = buildSplitRowsFromNegocio(r.negocioId, r.splits);
   } else {
     setVal('mr-negocio',''); setVal('mr-data', todayISO()); setVal('mr-ref',''); setVal('mr-valor','');
-    setVal('mr-imposto-pct', STORE.config.impostoPct); setVal('mr-agente-pct', STORE.config.agentePct); setVal('mr-obs','');
+    setVal('mr-imposto-pct', STORE.config.impostoPct); setVal('mr-agente-pct', STORE.config.agentePct);
+    setVal('mr-corplink-pct', STORE.config.corplinkPct); setVal('mr-obs','');
     mrSplitRows = [];
   }
   renderRecebimentoSplitPreview();
@@ -1244,15 +1525,18 @@ async function saveRecebimento(){
   const valorRecebido = round2(Number(val('mr-valor')));
   const percentualImposto = Number(val('mr-imposto-pct'))||0;
   const percentualAgente = Number(val('mr-agente-pct'))||0;
+  const percentualCorplink = Number(val('mr-corplink-pct'))||0;
   if(!negocioId){ toast('Selecione o negócio.','err'); return; }
   if(!data){ toast('Informe a data.','err'); return; }
   if(!valorRecebido || valorRecebido<=0){ toast('Informe o valor recebido.','err'); return; }
   const id = val('mr-id');
-  const c = calcCascataRecebimento(valorRecebido, percentualImposto, percentualAgente);
+  if(id && recebimentoTravado(recById(Number(id)))){ toast('Recebimento travado — não pode salvar. Use um Ajuste em Pagamentos.','err'); return; }
+  const c = calcCascataRecebimento(valorRecebido, percentualImposto, percentualAgente, percentualCorplink);
   const payload = {
     negocio_id: negocioId, data, referencia: val('mr-ref').trim()||null, valor_recebido: valorRecebido,
     percentual_imposto: percentualImposto, valor_imposto: c.valorImposto,
-    percentual_agente: percentualAgente, valor_agente: c.valorAgente, valor_liquido: c.valorLiquido,
+    percentual_agente: percentualAgente, valor_agente: c.valorAgente,
+    percentual_corplink: percentualCorplink, valor_corplink: c.valorCorplink, valor_liquido: c.valorLiquido,
     observacoes: val('mr-obs').trim()||null
   };
   const btn = document.getElementById('btn-save-recebimento'); btn.disabled = true;
@@ -1271,7 +1555,8 @@ async function saveRecebimento(){
     const rows = mrSplitRows.map(r=>({
       recebimento_id: recebimentoId, comissionado_id:r.comissionadoId, percentual:Number(r.percentual)||0,
       valor: round2(c.valorLiquido*(Number(r.percentual)||0)/100),
-      status_pagamento: r.statusPagamento||'Pendente', data_pagamento: r.dataPagamento||null
+      status_pagamento: r.statusPagamento||'Pendente', data_pagamento: r.dataPagamento||null,
+      comprovante_path: r.comprovantePath||null
     }));
     const { error: e2 } = await sbClient.from('cbs_recebimento_splits').insert(rows);
     if(e2){ toast('Erro ao salvar divisão: '+e2.message,'err'); btn.disabled=false; return; }
@@ -1281,6 +1566,7 @@ async function saveRecebimento(){
   await refreshStore(); closeModal('modal-recebimento'); renderAll();
 }
 async function deleteRecebimento(id){
+  if(recebimentoTravado(recById(id))){ toast('Recebimento travado — já tem repasse pago ou é de um mês fechado.','err'); return; }
   if(!confirm('Excluir este recebimento? Os repasses vinculados também serão removidos.')) return;
   const { error } = await sbClient.from('cbs_recebimentos').delete().eq('id', id);
   if(error){ toast('Erro ao excluir: '+error.message,'err'); return; }
@@ -1302,13 +1588,17 @@ function renderPagamentos(){
       <td>${fmtR$(s.valor)}</td>
       <td>${statusBadge(s.statusPagamento)}</td>
       <td>${s.dataPagamento?fmtData(s.dataPagamento):'—'}</td>
-      <td>${s.statusPagamento==='Pendente'
-        ? `<button class="btn btn-primary btn-sm" onclick="openPagarModal(${s.recebimentoId},${s.comissionadoId})">Marcar pago</button>`
-        : `<button class="btn btn-ghost btn-sm" onclick="revertPagamento(${s.recebimentoId},${s.comissionadoId})">Reverter</button>`}</td>
+      <td><div class="row-actions">
+        ${s.comprovantePath ? `<button class="icon-btn" onclick="verComprovante('${esc(s.comprovantePath)}')" title="Ver comprovante">📎</button>` : ''}
+        ${s.statusPagamento==='Pendente'
+          ? `<button class="btn btn-primary btn-sm" onclick="openPagarModal(${s.recebimentoId},${s.comissionadoId})">Marcar pago</button>`
+          : `<button class="btn btn-ghost btn-sm" onclick="revertPagamento(${s.recebimentoId},${s.comissionadoId})">Reverter</button>`}
+      </div></td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="7">Nenhum item encontrado para este filtro.</td></tr>`;
 }
 function openPagarModal(recId, comId){
   setVal('mp-recid', recId); setVal('mp-comid', comId); setVal('mp-data', todayISO());
+  document.getElementById('mp-comprovante').value = '';
   const r = recById(recId); const s = (r.splits||[]).find(x=>x.comissionadoId===comId);
   document.getElementById('mp-desc').textContent = `${comById(comId)?.nome||'?'} — ${fmtR$(s?s.valor:0)} referente a ${negById(r.negocioId)?.empresaCliente||''}`;
   document.getElementById('modal-pagar').classList.add('open');
@@ -1316,12 +1606,28 @@ function openPagarModal(recId, comId){
 async function confirmPagamento(){
   const recId = Number(val('mp-recid')), comId = Number(val('mp-comid'));
   const dataPagamento = val('mp-data');
+  const arquivo = document.getElementById('mp-comprovante').files[0];
+  const btn = document.getElementById('btn-confirm-pagamento'); btn.disabled = true;
+  const payload = { status_pagamento:'Pago', data_pagamento: dataPagamento };
+  if(arquivo){
+    const ext = arquivo.name.split('.').pop();
+    const path = `${recId}-${comId}-${Date.now()}.${ext}`;
+    const { error: upErr } = await sbClient.storage.from('cbs-comprovantes').upload(path, arquivo);
+    if(upErr){ toast('Erro ao subir comprovante: '+upErr.message,'err'); btn.disabled=false; return; }
+    payload.comprovante_path = path;
+  }
   const { error } = await sbClient.from('cbs_recebimento_splits')
-    .update({ status_pagamento:'Pago', data_pagamento: dataPagamento })
+    .update(payload)
     .eq('recebimento_id', recId).eq('comissionado_id', comId);
+  btn.disabled = false;
   if(error){ toast('Erro: '+error.message,'err'); return; }
   toast('Pagamento confirmado.');
   closeModal('modal-pagar'); await refreshStore(); renderAll();
+}
+async function verComprovante(path){
+  const { data, error } = await sbClient.storage.from('cbs-comprovantes').createSignedUrl(path, 60);
+  if(error){ toast('Erro ao abrir comprovante: '+error.message,'err'); return; }
+  window.open(data.signedUrl, '_blank');
 }
 async function revertPagamento(recId, comId){
   const { error } = await sbClient.from('cbs_recebimento_splits')
@@ -1331,14 +1637,75 @@ async function revertPagamento(recId, comId){
   await refreshStore(); renderAll(); toast('Pagamento revertido.');
 }
 
+/* ================= AJUSTES (Estorno / Adiantamento / Ajuste Manual) ================= */
+// linha negativa no saldo do comissionado — não altera nenhum recebimento/split já gravado (é aditivo).
+function ajustesDoComissionado(comId, de, ate){
+  let list = STORE.ajustes.filter(a=>a.comissionadoId===comId);
+  if(de) list = list.filter(a=>(a.data||'') >= de);
+  if(ate) list = list.filter(a=>(a.data||'') <= ate);
+  return list;
+}
+function renderAjustes(){
+  const tb = document.querySelector('#tbl-ajustes tbody');
+  if(!tb) return;
+  const list = [...STORE.ajustes].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  tb.innerHTML = list.length ? list.map(a=>`
+    <tr>
+      <td>${fmtData(a.data)}</td>
+      <td><span class="badge ${a.tipo==='Estorno'?'red':a.tipo==='Adiantamento'?'blue':'gray'}">${esc(a.tipo)}</span></td>
+      <td>${esc(comById(a.comissionadoId)?.nome||'?')}</td>
+      <td>${esc(a.negocioId ? (negById(a.negocioId)?.empresaCliente||'—') : '—')}</td>
+      <td style="color:var(--danger)">− ${fmtR$(a.valor)}</td>
+      <td>${esc(a.motivo||'—')}</td>
+      <td><div class="row-actions">
+        <button class="icon-btn" onclick="deleteAjuste(${a.id})" title="Excluir">🗑</button>
+      </div></td>
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="7">Nenhum ajuste lançado.</td></tr>`;
+}
+function fillAjusteSelects(){
+  const selCom = document.getElementById('aj-comissionado');
+  selCom.innerHTML = [...STORE.comissionados].sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+  const selNeg = document.getElementById('aj-negocio');
+  selNeg.innerHTML = `<option value="">Nenhum</option>` + [...STORE.negocios].sort((a,b)=>a.empresaCliente.localeCompare(b.empresaCliente)).map(n=>`<option value="${n.id}">${esc(n.empresaCliente)}</option>`).join('');
+}
+function openAjusteModal(){
+  fillAjusteSelects();
+  setVal('aj-id',''); setVal('aj-tipo','Estorno'); setVal('aj-negocio','');
+  setVal('aj-valor',''); setVal('aj-data', todayISO()); setVal('aj-motivo','');
+  document.getElementById('modal-ajuste').classList.add('open');
+}
+async function saveAjuste(){
+  const tipo = val('aj-tipo');
+  const comissionadoId = Number(val('aj-comissionado'));
+  const negocioId = val('aj-negocio') ? Number(val('aj-negocio')) : null;
+  const valor = Number(val('aj-valor'));
+  const data = val('aj-data');
+  if(!comissionadoId){ toast('Selecione o comissionado.','err'); return; }
+  if(!data){ toast('Informe a data.','err'); return; }
+  if(!valor || valor<=0){ toast('Informe um valor maior que zero.','err'); return; }
+  const payload = { tipo, comissionado_id: comissionadoId, negocio_id: negocioId, valor, data, motivo: val('aj-motivo').trim()||null };
+  const { error } = await sbClient.from('cbs_ajustes').insert(payload);
+  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
+  toast('Ajuste registrado.');
+  await refreshStore(); closeModal('modal-ajuste'); renderAll();
+}
+async function deleteAjuste(id){
+  if(!confirm('Excluir este ajuste?')) return;
+  const { error } = await sbClient.from('cbs_ajustes').delete().eq('id', id);
+  if(error){ toast('Erro ao excluir: '+error.message,'err'); return; }
+  await refreshStore(); renderAll();
+}
+
 /* ================= EXTRATOS ================= */
 // valor do select combina tipo:chave — sócio usa e-mail (chave real dele), comissionado usa o id numérico
 function fillExtratoSelect(){
   const sel = document.getElementById('ext-pessoa');
   const cur = sel.value;
+  const ehOperacional = currentUser && currentUser.posicao==='Operacional';
   const socios = STORE.usuarios.filter(u=>u.posicao==='Sócio');
   let html = `<option value="">Selecione uma pessoa...</option>`;
-  if(socios.length) html += `<optgroup label="Sócios">${socios.map(u=>`<option value="socio:${esc(u.email)}">${esc(u.nome)}</option>`).join('')}</optgroup>`;
+  // extrato de lucro dos sócios fica fora do alcance do Operacional — mesma regra do painel no Dashboard
+  if(socios.length && !ehOperacional) html += `<optgroup label="Sócios">${socios.map(u=>`<option value="socio:${esc(u.email)}">${esc(u.nome)}</option>`).join('')}</optgroup>`;
   if(STORE.comissionados.length) html += `<optgroup label="Rede comercial">${STORE.comissionados.map(c=>`<option value="com:${c.id}">${esc(c.nome)}</option>`).join('')}</optgroup>`;
   sel.innerHTML = html;
   if(cur) sel.value = cur;
@@ -1363,11 +1730,12 @@ function extratoSocioRows(de, ate){
   recs.sort((a,b)=>(a.data||'').localeCompare(b.data||''));
   return recs.map(r=>{
     const neg = negById(r.negocioId);
-    const liquido = r.valorLiquido!=null ? r.valorLiquido : r.valorRecebido; // Lucro Líquido CBS (já sem o Agente Banco)
+    const liquido = r.valorLiquido!=null ? r.valorLiquido : r.valorRecebido; // Lucro Líquido (já sem Agente Banco e CorpLink)
     const rede = (r.splits||[]).reduce((a,s)=>a+Number(s.valor||0),0);
-    // Lucro Sócio = Lucro Líquido CBS menos as comissões da rede
+    // Lucro Sócio = Lucro Líquido menos as comissões da rede
     return { data:r.data, empresa: neg?neg.empresaCliente:'—', referencia:r.referencia,
-      recebido: Number(r.valorRecebido||0), imposto: Number(r.valorImposto||0), liquido, rede, sobra: liquido-rede };
+      recebido: Number(r.valorRecebido||0), imposto: Number(r.valorImposto||0), corplink: Number(r.valorCorplink||0),
+      liquido, rede, sobra: liquido-rede };
   });
 }
 function renderExtrato(){
@@ -1386,14 +1754,13 @@ function renderExtrato(){
     const totalRecebido = rows.reduce((a,r)=>a+r.recebido,0);
     const totalImposto = rows.reduce((a,r)=>a+r.imposto,0);
     const totalLucro = rows.reduce((a,r)=>a+r.sobra,0);
-    const nSocios = STORE.usuarios.filter(u=>u.posicao==='Sócio').length || 1;
-    const porSocio = totalLucro/nSocios;
+    const parteSocio = parteDoSocio(chave, totalLucro);
     cardsEl.innerHTML = `
       <div class="stat-card"><div class="lbl">Total recebido no período</div><div class="val blue">${fmtR$(totalRecebido)}</div></div>
       <div class="stat-card"><div class="lbl">Imposto retido</div><div class="val warn">${fmtR$(totalImposto)}</div></div>
       <div class="stat-card"><div class="lbl">Lucro Sócio no período</div><div class="val">${fmtR$(totalLucro)}</div></div>
-      <div class="stat-card"><div class="lbl">Sua parte (÷ ${nSocios} sócio${nSocios>1?'s':''})</div><div class="val green">${fmtR$(porSocio)}</div></div>`;
-    head.innerHTML = `<tr><th>Data</th><th>Empresa</th><th>Referência</th><th>Recebido</th><th>Imposto</th><th>Lucro Líquido CBS</th><th>Comissionamento rede</th><th>Lucro Sócio</th></tr>`;
+      <div class="stat-card"><div class="lbl">Sua parte</div><div class="val green">${fmtR$(parteSocio)}</div></div>`;
+    head.innerHTML = `<tr><th>Data</th><th>Empresa</th><th>Referência</th><th>Recebido</th><th>Imposto</th><th>CorpLink</th><th>Lucro Líquido Enterprise Capital</th><th>Comissionamento rede</th><th>Lucro Sócio</th></tr>`;
     tb.innerHTML = rows.length ? rows.map(r=>`
       <tr>
         <td>${fmtData(r.data)}</td>
@@ -1401,24 +1768,30 @@ function renderExtrato(){
         <td>${esc(fmtRef(r.referencia))||'—'}</td>
         <td>${fmtR$(r.recebido)}</td>
         <td>${fmtR$(r.imposto)}</td>
+        <td>${fmtR$(r.corplink)}</td>
         <td>${fmtR$(r.liquido)}</td>
         <td>${fmtR$(r.rede)}</td>
         <td><b>${fmtR$(r.sobra)}</b></td>
-      </tr>`).join('') : `<tr class="empty-row"><td colspan="8">Nenhum recebimento no período.</td></tr>`;
+      </tr>`).join('') : `<tr class="empty-row"><td colspan="9">Nenhum recebimento no período.</td></tr>`;
     return;
   }
 
   const id = Number(chave);
   const splits = extratoComissionadoRows(id, de, ate);
+  const ajustes = ajustesDoComissionado(id, de, ate);
   const totalGeral = splits.reduce((a,s)=>a+Number(s.valor||0),0);
   const totalPago = splits.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0);
   const totalPendente = splits.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0);
+  const totalAjustes = ajustes.reduce((a,j)=>a+Number(j.valor||0),0);
   cardsEl.innerHTML = `
     <div class="stat-card"><div class="lbl">Total no período</div><div class="val">${fmtR$(totalGeral)}</div></div>
     <div class="stat-card"><div class="lbl">Já pago</div><div class="val green">${fmtR$(totalPago)}</div></div>
-    <div class="stat-card"><div class="lbl">Pendente</div><div class="val warn">${fmtR$(totalPendente)}</div></div>`;
+    <div class="stat-card"><div class="lbl">Pendente</div><div class="val warn">${fmtR$(totalPendente)}</div></div>` +
+    (totalAjustes>0 ? `
+    <div class="stat-card"><div class="lbl">Ajustes (estorno/adiant.)</div><div class="val" style="color:var(--danger)">− ${fmtR$(totalAjustes)}</div></div>
+    <div class="stat-card"><div class="lbl">Saldo líquido a receber</div><div class="val">${fmtR$(totalGeral-totalAjustes)}</div></div>` : '');
   head.innerHTML = `<tr><th>Data</th><th>Empresa</th><th>Referência</th><th>Recebido (total)</th><th>% </th><th>Valor comissionado</th><th>Status</th></tr>`;
-  tb.innerHTML = splits.length ? splits.map(s=>`
+  const linhasSplit = splits.map(s=>`
     <tr>
       <td>${fmtData(s.dataRecebimento)}</td>
       <td>${esc(s.empresa)}</td>
@@ -1427,7 +1800,19 @@ function renderExtrato(){
       <td>${s.percentual}%</td>
       <td><b>${fmtR$(s.valor)}</b></td>
       <td>${statusBadge(s.statusPagamento)}</td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="7">Nenhum lançamento no período.</td></tr>`;
+    </tr>`);
+  const linhasAjuste = ajustes.map(j=>`
+    <tr style="color:var(--danger)">
+      <td>${fmtData(j.data)}</td>
+      <td>${esc(j.negocioId ? (negById(j.negocioId)?.empresaCliente||'—') : (j.motivo||'—'))}</td>
+      <td>—</td>
+      <td>—</td>
+      <td>—</td>
+      <td><b>− ${fmtR$(j.valor)}</b></td>
+      <td>${esc(j.tipo)}</td>
+    </tr>`);
+  const linhas = [...linhasSplit, ...linhasAjuste];
+  tb.innerHTML = linhas.length ? linhas.join('') : `<tr class="empty-row"><td colspan="7">Nenhum lançamento no período.</td></tr>`;
 }
 function printExtrato(){
   const raw = document.getElementById('ext-pessoa').value;
@@ -1442,14 +1827,14 @@ function printExtrato(){
     const totalRecebido = rows.reduce((a,r)=>a+r.recebido,0);
     const totalImposto = rows.reduce((a,r)=>a+r.imposto,0);
     const totalLucro = rows.reduce((a,r)=>a+r.sobra,0);
-    const nSocios = STORE.usuarios.filter(u=>u.posicao==='Sócio').length || 1;
-    const porSocio = totalLucro/nSocios;
+    const porSocio = parteDoSocio(chave, totalLucro);
     document.getElementById('pa-nome').textContent = 'Extrato de lucro — ' + (u?u.nome:'');
     document.getElementById('pa-thead').innerHTML = `<tr>
       <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Data</th>
       <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Empresa</th>
       <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Recebido</th>
       <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Imposto</th>
+      <th style="text-align:right;padding:6px;border-bottom:1px solid #999">CorpLink</th>
       <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Comissão rede</th>
       <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Lucro Sócio</th>
     </tr>`;
@@ -1459,18 +1844,20 @@ function printExtrato(){
         <td style="padding:6px">${esc(r.empresa)}</td>
         <td style="padding:6px;text-align:right">${fmtR$(r.recebido)}</td>
         <td style="padding:6px;text-align:right">${fmtR$(r.imposto)}</td>
+        <td style="padding:6px;text-align:right">${fmtR$(r.corplink)}</td>
         <td style="padding:6px;text-align:right">${fmtR$(r.rede)}</td>
         <td style="padding:6px;text-align:right">${fmtR$(r.sobra)}</td>
       </tr>`).join('');
     document.getElementById('pa-totais').innerHTML = `
       Total recebido: <b>${fmtR$(totalRecebido)}</b> — Imposto retido: <b>${fmtR$(totalImposto)}</b><br>
-      Lucro Sócio no período: <b>${fmtR$(totalLucro)}</b> — Parte de ${esc(u?u.nome:'')} (÷${nSocios}): <b>${fmtR$(porSocio)}</b>`;
+      Lucro Sócio no período: <b>${fmtR$(totalLucro)}</b> — Parte de ${esc(u?u.nome:'')}: <b>${fmtR$(porSocio)}</b>`;
     window.print();
     return;
   }
 
   const id = Number(chave);
   const splits = extratoComissionadoRows(id, de, ate);
+  const ajustes = ajustesDoComissionado(id, de, ate);
   document.getElementById('pa-nome').textContent = 'Extrato — ' + (comById(id)?.nome||'');
   document.getElementById('pa-thead').innerHTML = `<tr>
     <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Data</th>
@@ -1478,15 +1865,26 @@ function printExtrato(){
     <th style="text-align:right;padding:6px;border-bottom:1px solid #999">Valor</th>
     <th style="text-align:left;padding:6px;border-bottom:1px solid #999">Status</th>
   </tr>`;
-  document.getElementById('pa-tbody').innerHTML = splits.map(s=>`
+  const linhasSplit = splits.map(s=>`
     <tr>
       <td style="padding:6px">${fmtData(s.dataRecebimento)}</td>
       <td style="padding:6px">${esc(s.empresa)}</td>
       <td style="padding:6px;text-align:right">${fmtR$(s.valor)}</td>
       <td style="padding:6px">${s.statusPagamento}</td>
-    </tr>`).join('');
+    </tr>`);
+  const linhasAjuste = ajustes.map(j=>`
+    <tr>
+      <td style="padding:6px">${fmtData(j.data)}</td>
+      <td style="padding:6px">${esc(j.tipo)}${j.motivo?' — '+esc(j.motivo):''}</td>
+      <td style="padding:6px;text-align:right">− ${fmtR$(j.valor)}</td>
+      <td style="padding:6px">—</td>
+    </tr>`);
+  document.getElementById('pa-tbody').innerHTML = [...linhasSplit, ...linhasAjuste].join('');
   const total = splits.reduce((a,s)=>a+Number(s.valor||0),0);
-  document.getElementById('pa-totais').innerHTML = `<b>Total: ${fmtR$(total)}</b>`;
+  const totalAjustes = ajustes.reduce((a,j)=>a+Number(j.valor||0),0);
+  document.getElementById('pa-totais').innerHTML = totalAjustes>0
+    ? `Total bruto: <b>${fmtR$(total)}</b> — Ajustes: <b>− ${fmtR$(totalAjustes)}</b><br><b>Saldo líquido: ${fmtR$(total-totalAjustes)}</b>`
+    : `<b>Total: ${fmtR$(total)}</b>`;
   window.print();
 }
 

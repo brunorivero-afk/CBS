@@ -1,33 +1,38 @@
 -- CBS — setup Supabase
 -- Rodar no SQL Editor do projeto pxcqyzbgfbwwkazmonzx (mesmo projeto do BIG GTD / Finanças Casa / Agenda Renata)
 -- Todas as tabelas prefixadas "cbs_" pra ficar isolado dos outros apps no mesmo projeto.
+--
+-- Este arquivo é IDEMPOTENTE (pode rodar de novo sem quebrar nada — usa "if not exists"/"create or replace"/"on conflict").
 
 -- ============================================================
 -- 1. USUÁRIOS AUTORIZADOS (allowlist + perfil de cada um)
 -- ============================================================
--- Só quem estiver aqui (por e-mail) consegue ler/gravar qualquer tabela do CBS.
--- Cadastre aqui o e-mail exato usado no Supabase Auth de cada sócio/operacional.
 create table if not exists cbs_usuarios (
   email text primary key,
   nome text not null,
   posicao text not null check (posicao in ('Sócio','Comercial','Operacional')),
+  lucro_pct numeric(6,2), -- % desse sócio no Lucro Sócio (opcional). Se não somar 100% entre os sócios, o sistema usa divisão igual.
+  comissionado_id bigint, -- pra Comercial: liga esse login ao próprio cadastro em cbs_comissionados (usado pelo RLS pra restringir o que ele vê)
   created_at timestamptz default now()
 );
+alter table cbs_usuarios add column if not exists lucro_pct numeric(6,2);
+alter table cbs_usuarios add column if not exists comissionado_id bigint;
 
--- Função que checa se quem está logado (pelo e-mail do token) está na allowlist.
--- security definer = ignora RLS da própria cbs_usuarios ao checar (senão vira referência circular).
 create or replace function cbs_is_authorized()
-returns boolean
-language sql
-security definer
-stable
-as $$
-  select exists (
-    select 1 from cbs_usuarios where email = auth.jwt() ->> 'email'
-  );
+returns boolean language sql security definer stable as $$
+  select exists (select 1 from cbs_usuarios where email = auth.jwt() ->> 'email');
+$$;
+create or replace function cbs_posicao_atual()
+returns text language sql security definer stable as $$
+  select posicao from cbs_usuarios where email = auth.jwt() ->> 'email';
+$$;
+create or replace function cbs_comissionado_atual()
+returns bigint language sql security definer stable as $$
+  select comissionado_id from cbs_usuarios where email = auth.jwt() ->> 'email';
 $$;
 
 alter table cbs_usuarios enable row level security;
+drop policy if exists "cbs_usuarios - só autorizados" on cbs_usuarios;
 create policy "cbs_usuarios - só autorizados" on cbs_usuarios
   for all using (cbs_is_authorized()) with check (cbs_is_authorized());
 
@@ -42,13 +47,21 @@ create table if not exists cbs_comissionados (
   pix text,
   status text not null default 'Ativo' check (status in ('Ativo','Inativo')),
   indicado_por bigint references cbs_comissionados(id) on delete set null,
+  socio_vinculado text references cbs_usuarios(email) on delete set null, -- marca que esse cadastro representa a participação de um sócio como comissionado
   observacoes text,
   created_at timestamptz default now()
 );
+alter table cbs_comissionados add column if not exists socio_vinculado text references cbs_usuarios(email) on delete set null;
 
 alter table cbs_comissionados enable row level security;
-create policy "cbs_comissionados - só autorizados" on cbs_comissionados
-  for all using (cbs_is_authorized()) with check (cbs_is_authorized());
+drop policy if exists "cbs_comissionados - só autorizados" on cbs_comissionados;
+-- Sócio/Operacional veem tudo. Comercial só enxerga o próprio cadastro (pra quando o portal existir).
+create policy "cbs_comissionados - acesso" on cbs_comissionados
+  for all using (
+    cbs_posicao_atual() in ('Sócio','Operacional')
+    or (cbs_posicao_atual()='Comercial' and id = cbs_comissionado_atual())
+  )
+  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 3. NEGÓCIOS (relacionamento com o cliente) + divisão de comissão
@@ -64,10 +77,17 @@ create table if not exists cbs_negocios (
 );
 
 alter table cbs_negocios enable row level security;
-create policy "cbs_negocios - só autorizados" on cbs_negocios
-  for all using (cbs_is_authorized()) with check (cbs_is_authorized());
+drop policy if exists "cbs_negocios - só autorizados" on cbs_negocios;
+-- Comercial só vê negócios em que o próprio comissionado_id participa da divisão.
+create policy "cbs_negocios - acesso" on cbs_negocios
+  for all using (
+    cbs_posicao_atual() in ('Sócio','Operacional')
+    or (cbs_posicao_atual()='Comercial' and exists (
+      select 1 from cbs_negocio_comissionados nc where nc.negocio_id = cbs_negocios.id and nc.comissionado_id = cbs_comissionado_atual()
+    ))
+  )
+  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
 
--- fonte única do % de cada comissionado no negócio (Recebimento só lê daqui)
 create table if not exists cbs_negocio_comissionados (
   id bigserial primary key,
   negocio_id bigint not null references cbs_negocios(id) on delete cascade,
@@ -78,8 +98,13 @@ create table if not exists cbs_negocio_comissionados (
 );
 
 alter table cbs_negocio_comissionados enable row level security;
-create policy "cbs_negocio_comissionados - só autorizados" on cbs_negocio_comissionados
-  for all using (cbs_is_authorized()) with check (cbs_is_authorized());
+drop policy if exists "cbs_negocio_comissionados - só autorizados" on cbs_negocio_comissionados;
+create policy "cbs_negocio_comissionados - acesso" on cbs_negocio_comissionados
+  for all using (
+    cbs_posicao_atual() in ('Sócio','Operacional')
+    or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+  )
+  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 4. RECEBIMENTOS (lançamento do extrato do banco) + splits calculados
@@ -94,14 +119,25 @@ create table if not exists cbs_recebimentos (
   valor_imposto numeric(14,2) not null default 0,
   percentual_agente numeric(6,2) not null default 0,
   valor_agente numeric(14,2) not null default 0,
-  valor_liquido numeric(14,2) not null default 0, -- Lucro Líquido CBS
+  percentual_corplink numeric(6,2) not null default 0,
+  valor_corplink numeric(14,2) not null default 0,
+  valor_liquido numeric(14,2) not null default 0, -- Lucro Líquido (já sem Agente Banco e CorpLink)
   observacoes text,
   created_at timestamptz default now()
 );
+alter table cbs_recebimentos add column if not exists percentual_corplink numeric(6,2) not null default 0;
+alter table cbs_recebimentos add column if not exists valor_corplink numeric(14,2) not null default 0;
 
 alter table cbs_recebimentos enable row level security;
-create policy "cbs_recebimentos - só autorizados" on cbs_recebimentos
-  for all using (cbs_is_authorized()) with check (cbs_is_authorized());
+drop policy if exists "cbs_recebimentos - só autorizados" on cbs_recebimentos;
+create policy "cbs_recebimentos - acesso" on cbs_recebimentos
+  for all using (
+    cbs_posicao_atual() in ('Sócio','Operacional')
+    or (cbs_posicao_atual()='Comercial' and exists (
+      select 1 from cbs_recebimento_splits s where s.recebimento_id = cbs_recebimentos.id and s.comissionado_id = cbs_comissionado_atual()
+    ))
+  )
+  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 create table if not exists cbs_recebimento_splits (
   id bigserial primary key,
@@ -110,26 +146,38 @@ create table if not exists cbs_recebimento_splits (
   percentual numeric(6,2) not null default 0,
   valor numeric(14,2) not null default 0,
   status_pagamento text not null default 'Pendente' check (status_pagamento in ('Pendente','Pago')),
-  data_pagamento date
+  data_pagamento date,
+  comprovante_path text -- caminho do arquivo no Storage (bucket cbs-comprovantes), preenchido ao marcar como Pago
 );
+alter table cbs_recebimento_splits add column if not exists comprovante_path text;
 
 alter table cbs_recebimento_splits enable row level security;
-create policy "cbs_recebimento_splits - só autorizados" on cbs_recebimento_splits
-  for all using (cbs_is_authorized()) with check (cbs_is_authorized());
+drop policy if exists "cbs_recebimento_splits - só autorizados" on cbs_recebimento_splits;
+create policy "cbs_recebimento_splits - acesso" on cbs_recebimento_splits
+  for all using (
+    cbs_posicao_atual() in ('Sócio','Operacional')
+    or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+  )
+  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 5. CONFIGURAÇÕES (linha única: % imposto padrão, % Agente Banco padrão)
 -- ============================================================
 create table if not exists cbs_config (
-  id int primary key default 1 check (id = 1), -- garante uma única linha
+  id int primary key default 1 check (id = 1),
   imposto_pct numeric(6,2) not null default 0,
-  agente_pct numeric(6,2) not null default 50
+  agente_pct numeric(6,2) not null default 50,
+  corplink_pct numeric(6,2) not null default 20,
+  mes_fechado_ate text -- "AAAA-MM": recebimentos com data <= esse mês ficam travados pra edição/exclusão
 );
 insert into cbs_config (id) values (1) on conflict (id) do nothing;
+alter table cbs_config add column if not exists corplink_pct numeric(6,2) not null default 20;
+alter table cbs_config add column if not exists mes_fechado_ate text;
 
 alter table cbs_config enable row level security;
-create policy "cbs_config - só autorizados" on cbs_config
-  for all using (cbs_is_authorized()) with check (cbs_is_authorized());
+drop policy if exists "cbs_config - só autorizados" on cbs_config;
+create policy "cbs_config - acesso" on cbs_config
+  for all using (cbs_posicao_atual() in ('Sócio','Operacional')) with check (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 6. TRILHA DE AUDITORIA (quem alterou o quê, com valor antigo/novo)
@@ -146,22 +194,16 @@ create table if not exists cbs_audit_log (
 );
 
 alter table cbs_audit_log enable row level security;
-create policy "cbs_audit_log - só autorizados leem" on cbs_audit_log
-  for select using (cbs_is_authorized());
--- ninguém edita/apaga log manualmente — só o trigger (security definer) grava.
+drop policy if exists "cbs_audit_log - só autorizados leem" on cbs_audit_log;
+create policy "cbs_audit_log - só sócio/operacional leem" on cbs_audit_log
+  for select using (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 create or replace function cbs_audit_trigger()
-returns trigger
-language plpgsql
-security definer
-as $$
+returns trigger language plpgsql security definer as $$
 begin
   insert into cbs_audit_log(tabela, registro_id, operacao, usuario_email, dados_antigos, dados_novos)
   values (
-    TG_TABLE_NAME,
-    coalesce(new.id, old.id),
-    TG_OP,
-    auth.jwt() ->> 'email',
+    TG_TABLE_NAME, coalesce(new.id, old.id), TG_OP, auth.jwt() ->> 'email',
     case when TG_OP in ('UPDATE','DELETE') then to_jsonb(old) else null end,
     case when TG_OP in ('UPDATE','INSERT') then to_jsonb(new) else null end
   );
@@ -169,28 +211,82 @@ begin
 end;
 $$;
 
-create trigger cbs_audit_recebimentos
-  after insert or update or delete on cbs_recebimentos
-  for each row execute function cbs_audit_trigger();
-
-create trigger cbs_audit_recebimento_splits
-  after insert or update or delete on cbs_recebimento_splits
-  for each row execute function cbs_audit_trigger();
-
-create trigger cbs_audit_negocios
-  after insert or update or delete on cbs_negocios
-  for each row execute function cbs_audit_trigger();
-
-create trigger cbs_audit_negocio_comissionados
-  after insert or update or delete on cbs_negocio_comissionados
-  for each row execute function cbs_audit_trigger();
+drop trigger if exists cbs_audit_recebimentos on cbs_recebimentos;
+create trigger cbs_audit_recebimentos after insert or update or delete on cbs_recebimentos for each row execute function cbs_audit_trigger();
+drop trigger if exists cbs_audit_recebimento_splits on cbs_recebimento_splits;
+create trigger cbs_audit_recebimento_splits after insert or update or delete on cbs_recebimento_splits for each row execute function cbs_audit_trigger();
+drop trigger if exists cbs_audit_negocios on cbs_negocios;
+create trigger cbs_audit_negocios after insert or update or delete on cbs_negocios for each row execute function cbs_audit_trigger();
+drop trigger if exists cbs_audit_negocio_comissionados on cbs_negocio_comissionados;
+create trigger cbs_audit_negocio_comissionados after insert or update or delete on cbs_negocio_comissionados for each row execute function cbs_audit_trigger();
 
 -- ============================================================
 -- 7. SÓCIOS AUTORIZADOS
 -- ============================================================
--- Esses e-mails são exatamente os das contas já criadas no Supabase Auth
--- (bruno.rivero@gmail.com já existia; vickcampanario@gmail.com foi criada agora).
 insert into cbs_usuarios (email, nome, posicao) values
   ('bruno.rivero@gmail.com', 'Bruno Rivero', 'Sócio'),
   ('vickcampanario@gmail.com', 'Vinicius', 'Sócio')
 on conflict (email) do update set nome = excluded.nome, posicao = excluded.posicao;
+
+-- ============================================================
+-- 8. STORAGE — bucket privado pra comprovantes de pagamento
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('cbs-comprovantes', 'cbs-comprovantes', false)
+on conflict (id) do nothing;
+
+drop policy if exists "cbs-comprovantes - acesso" on storage.objects;
+create policy "cbs-comprovantes - acesso" on storage.objects
+  for all using (bucket_id = 'cbs-comprovantes' and cbs_is_authorized())
+  with check (bucket_id = 'cbs-comprovantes' and cbs_is_authorized());
+
+-- ============================================================
+-- 9. RETIRADAS / PRÓ-LABORE — registro à parte, não entra em nenhum cálculo
+-- ============================================================
+create table if not exists cbs_retiradas (
+  id bigserial primary key,
+  usuario_email text not null references cbs_usuarios(email) on delete cascade,
+  tipo text not null default 'Pró-labore' check (tipo in ('Pró-labore','Retirada de lucro','Outro')),
+  valor numeric(14,2) not null,
+  data date not null,
+  observacoes text,
+  created_at timestamptz default now()
+);
+
+alter table cbs_retiradas enable row level security;
+drop policy if exists "cbs_retiradas - acesso" on cbs_retiradas;
+create policy "cbs_retiradas - acesso" on cbs_retiradas
+  for all using (cbs_posicao_atual() in ('Sócio','Operacional'))
+  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+
+drop trigger if exists cbs_audit_retiradas on cbs_retiradas;
+create trigger cbs_audit_retiradas after insert or update or delete on cbs_retiradas for each row execute function cbs_audit_trigger();
+
+-- ============================================================
+-- 10. AJUSTES — Estorno/Clawback, Adiantamento e Ajuste Manual (mesmo mecanismo)
+-- ============================================================
+-- Gera uma linha negativa no extrato do comissionado, abatendo do saldo a pagar (não altera nenhum
+-- recebimento/split já gravado — é aditivo, então nunca reescreve o passado. Serve também como o
+-- "Ajuste Manual no mês atual" pra corrigir um recebimento de mês já fechado, em vez de editar o antigo.
+create table if not exists cbs_ajustes (
+  id bigserial primary key,
+  tipo text not null check (tipo in ('Estorno','Adiantamento','Ajuste Manual')),
+  comissionado_id bigint not null references cbs_comissionados(id) on delete cascade,
+  negocio_id bigint references cbs_negocios(id) on delete set null,
+  valor numeric(14,2) not null check (valor > 0), -- sempre positivo; o "abate" é aplicado no cálculo do extrato/saldo
+  data date not null,
+  motivo text,
+  created_at timestamptz default now()
+);
+
+alter table cbs_ajustes enable row level security;
+drop policy if exists "cbs_ajustes - acesso" on cbs_ajustes;
+create policy "cbs_ajustes - acesso" on cbs_ajustes
+  for all using (
+    cbs_posicao_atual() in ('Sócio','Operacional')
+    or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+  )
+  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+
+drop trigger if exists cbs_audit_ajustes on cbs_ajustes;
+create trigger cbs_audit_ajustes after insert or update or delete on cbs_ajustes for each row execute function cbs_audit_trigger();
