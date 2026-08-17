@@ -395,7 +395,7 @@ tbody tr:hover{background:var(--card);}
         <div class="panel" style="max-width:520px">
           <div class="panel-head"><h3>Divisão da comissão recebida</h3></div>
           <p class="field-hint" style="margin-bottom:16px">
-            O valor que chega em cada Recebimento já vem sem a parte retida pelo banco na fonte. Sobre esse valor recebido, primeiro sai o imposto — o que sobra é o Lucro Bruto. Desse Lucro Bruto, CorpLink e o Agente Banco ficam com suas fatias — as duas incidem em paralelo sobre o mesmo Lucro Bruto, uma não desconta da outra. O que sobra dos dois é o Lucro Líquido, e é sobre ele que a comissão da rede comercial é calculada (não sobre o Lucro Bruto). Esses percentuais são aplicados automaticamente em todo recebimento novo (dá pra ajustar pontualmente em cada lançamento, se precisar).
+            O valor que chega em cada Recebimento já vem sem a parte retida pelo banco na fonte. Sobre esse valor recebido, primeiro sai o imposto — o que sobra é o Lucro Bruto. Desse Lucro Bruto, primeiro sai o CorpLink; do que sobrar depois do CorpLink, o Agente Banco fica com sua fatia. O que sobra dos dois é o Lucro Líquido, e é sobre ele que a comissão da rede comercial é calculada (não sobre o Lucro Bruto). Esses percentuais são aplicados automaticamente em todo recebimento novo (dá pra ajustar pontualmente em cada lançamento, se precisar).
           </p>
           <div class="field">
             <label>% de imposto sobre o valor recebido</label>
@@ -406,7 +406,7 @@ tbody tr:hover{background:var(--card);}
             <input type="number" step="0.01" min="0" max="100" id="cfg-corplink-pct">
           </div>
           <div class="field">
-            <label>% retido pelo Agente Banco (sobre o Lucro Bruto)</label>
+            <label>% retido pelo Agente Banco (sobre o que sobra depois do CorpLink)</label>
             <input type="number" step="0.01" min="0" max="100" id="cfg-agente-pct">
           </div>
           <div class="field-hint" id="cfg-preview" style="margin-bottom:16px"></div>
@@ -1025,7 +1025,7 @@ function updateConfigPreview(){
   const recebido = 1000;
   const c = calcCascataRecebimento(recebido, impostoPct, agentePct, corplinkPct);
   document.getElementById('cfg-preview').textContent =
-    `Exemplo: em um recebimento de ${fmtR$(recebido)} — imposto: ${fmtR$(c.valorImposto)} — Lucro Bruto: ${fmtR$(c.lucroBrutoCBS)}. Do Lucro Bruto, CorpLink fica com ${fmtR$(c.valorCorplink)} e o Agente Banco fica com ${fmtR$(c.valorAgente)}; sobra o Lucro Líquido de ${fmtR$(c.valorLiquido)}, que é a base da comissão da rede.`;
+    `Exemplo: em um recebimento de ${fmtR$(recebido)} — imposto: ${fmtR$(c.valorImposto)} — Lucro Bruto: ${fmtR$(c.lucroBrutoCBS)}. Do Lucro Bruto, CorpLink fica com ${fmtR$(c.valorCorplink)} (sobra ${fmtR$(c.baseAgente)}); desse restante, o Agente Banco fica com ${fmtR$(c.valorAgente)}; sobra o Lucro Líquido de ${fmtR$(c.valorLiquido)}, que é a base da comissão da rede.`;
 }
 document.addEventListener('input', e=>{ if(e.target && (e.target.id==='cfg-agente-pct'||e.target.id==='cfg-imposto-pct'||e.target.id==='cfg-corplink-pct')) updateConfigPreview(); });
 async function saveConfig(){
@@ -1447,18 +1447,19 @@ function onRecebimentoNegocioChange(){
   mrSplitRows = buildSplitRowsFromNegocio(negId, mrSplitRows);
   renderRecebimentoSplitPreview();
 }
-// cascata: Recebido -> Imposto -> Lucro Bruto.
-// Do Lucro Bruto, CorpLink e Agente Banco ficam com suas fatias EM PARALELO (as duas incidem sobre o mesmo
-// Lucro Bruto, não uma sobre a outra) — o que sobra dos dois é o Lucro Líquido.
+// cascata: Recebido -> Imposto -> Lucro Bruto -> CorpLink (sobre o Lucro Bruto) -> Agente Banco
+// (sobre o que SOBRA depois do CorpLink, não sobre o Lucro Bruto original) -> Lucro Líquido.
+// É sequencial, uma etapa consome a base da próxima — não paralelo.
 // A comissão da rede é um % calculado SOBRE O LUCRO LÍQUIDO (não sobre o Lucro Bruto).
 // Cada etapa é arredondada em centavos (round2) pra não acumular diferença de fração de centavo nos totais.
 function calcCascataRecebimento(valorRecebido, impostoPct, agentePct, corplinkPct){
   const valorImposto = round2(valorRecebido * impostoPct / 100);
   const lucroBrutoCBS = round2(valorRecebido - valorImposto);
-  const valorAgente = round2(lucroBrutoCBS * agentePct / 100);
   const valorCorplink = round2(lucroBrutoCBS * (Number(corplinkPct)||0) / 100);
-  const valorLiquido = round2(lucroBrutoCBS - valorAgente - valorCorplink); // Lucro Líquido
-  return { valorImposto, lucroBrutoCBS, valorAgente, valorCorplink, valorLiquido };
+  const baseAgente = round2(lucroBrutoCBS - valorCorplink); // o que sobra do Lucro Bruto depois do CorpLink
+  const valorAgente = round2(baseAgente * agentePct / 100);
+  const valorLiquido = round2(baseAgente - valorAgente); // Lucro Líquido
+  return { valorImposto, lucroBrutoCBS, valorCorplink, baseAgente, valorAgente, valorLiquido };
 }
 function renderRecebimentoSplitPreview(){
   const box = document.getElementById('mr-split-preview');
@@ -1469,7 +1470,8 @@ function renderRecebimentoSplitPreview(){
   const c = calcCascataRecebimento(valorTotal, impostoPct, agentePct, corplinkPct);
   const resumo = `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
     Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto: <b>${fmtR$(c.lucroBrutoCBS)}</b><br>
-    Do Lucro Bruto — CorpLink (${corplinkPct||0}%): <b>${fmtR$(c.valorCorplink)}</b> — Agente Banco (${agentePct||0}%): <b>${fmtR$(c.valorAgente)}</b> — Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
+    − CorpLink (${corplinkPct||0}% do Lucro Bruto): <b>${fmtR$(c.valorCorplink)}</b> — sobra ${fmtR$(c.baseAgente)}<br>
+    − Agente Banco (${agentePct||0}% do que sobrou): <b>${fmtR$(c.valorAgente)}</b> — Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
     <div style="margin-top:4px;color:var(--text-faint)">A comissão da rede abaixo é calculada sobre o Lucro Líquido.</div>
   </div>`;
   if(!mrSplitRows.length){
