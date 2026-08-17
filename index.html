@@ -254,12 +254,12 @@ tbody tr:hover{background:var(--card);}
       <div class="txt">Enterprise Capital<small>Rede comercial</small></div>
     </div>
     <div class="nav-item active" data-view="dashboard" onclick="goView('dashboard')"><span class="ic">◈</span> Dashboard</div>
-    <div class="nav-item" data-view="negocios" onclick="goView('negocios')"><span class="ic">◆</span> Negócios</div>
-    <div class="nav-item" data-view="recebimentos" onclick="goView('recebimentos')"><span class="ic">▤</span> Recebimentos</div>
-    <div class="nav-item" data-view="rede" onclick="goView('rede')"><span class="ic">◎</span> Rede</div>
-    <div class="nav-item" data-view="pagamentos" onclick="goView('pagamentos')"><span class="ic">$</span> Pagamentos</div>
-    <div class="nav-item" data-view="extratos" onclick="goView('extratos')"><span class="ic">▥</span> Extratos</div>
-    <div class="nav-item" data-view="config" onclick="goView('config')"><span class="ic">⚙</span> Configurações</div>
+    <div class="nav-item nav-admin" data-view="negocios" onclick="goView('negocios')"><span class="ic">◆</span> Negócios</div>
+    <div class="nav-item nav-admin" data-view="recebimentos" onclick="goView('recebimentos')"><span class="ic">▤</span> Recebimentos</div>
+    <div class="nav-item nav-admin" data-view="rede" onclick="goView('rede')"><span class="ic">◎</span> Rede</div>
+    <div class="nav-item nav-admin" data-view="pagamentos" onclick="goView('pagamentos')"><span class="ic">$</span> Pagamentos</div>
+    <div class="nav-item nav-admin" data-view="extratos" onclick="goView('extratos')"><span class="ic">▥</span> Extratos</div>
+    <div class="nav-item nav-admin" data-view="config" onclick="goView('config')"><span class="ic">⚙</span> Configurações</div>
     <div class="side-foot">
       <div class="side-user"><b id="side-user-name">—</b>logado</div>
       <button class="btn btn-ghost btn-sm" style="width:100%" onclick="doLogout()">Sair</button>
@@ -391,6 +391,7 @@ tbody tr:hover{background:var(--card);}
           <div class="panel-head"><h3>Extrato individual</h3></div>
           <div class="toolbar" style="margin-bottom:16px">
             <select id="ext-pessoa" onchange="renderExtrato()" style="min-width:220px"></select>
+            <b id="ext-pessoa-static" style="display:none;font-size:15px"></b>
             <input type="date" id="ext-de" onchange="renderExtrato()">
             <span style="color:var(--text-faint);font-size:12px">até</span>
             <input type="date" id="ext-ate" onchange="renderExtrato()">
@@ -453,9 +454,12 @@ tbody tr:hover{background:var(--card);}
         <div class="panel" style="max-width:520px">
           <div class="panel-head">
             <h3>Usuários com acesso</h3>
-            <button class="btn btn-primary btn-sm" onclick="openUsuarioModal()">+ Novo usuário</button>
+            <div class="toolbar">
+              <button class="btn btn-ghost btn-sm" onclick="enviarAcessoEmLote()">📧 Enviar acesso a todos os Comerciais</button>
+              <button class="btn btn-primary btn-sm" onclick="openUsuarioModal()">+ Novo usuário</button>
+            </div>
           </div>
-          <p class="field-hint" style="margin-bottom:14px">Login e senha agora são de verdade, gerenciados pelo Supabase (Authentication). Aqui você só libera QUAIS e-mails têm acesso ao Enterprise Capital e a posição de cada um — a conta de login em si (senha etc.) é criada separadamente no painel do Supabase.</p>
+          <p class="field-hint" style="margin-bottom:14px">Login e senha agora são de verdade, gerenciados pelo Supabase (Authentication). Aqui você só libera QUAIS e-mails têm acesso ao Enterprise Capital e a posição de cada um. Sócio/Operacional: a conta de login precisa já existir em Authentication → Users. Comercial: não precisa — o botão 📧 (ou "Enviar acesso a todos") manda um link mágico por e-mail que já cria a conta e loga a pessoa, sem senha.</p>
           <div class="tbl-wrap"><table id="tbl-usuarios"><thead><tr>
             <th>Nome</th><th>E-mail</th><th>Posição</th><th></th>
           </tr></thead><tbody></tbody></table></div>
@@ -559,13 +563,18 @@ tbody tr:hover{background:var(--card);}
     </div>
     <div class="field">
       <label>Posição</label>
-      <select id="mu-posicao" onchange="toggleMuLucroPct()"><option>Sócio</option><option>Comercial</option><option>Operacional</option></select>
-      <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa, e ela entra na divisão do Lucro Sócio. Comercial: funciona como um comissionado comum (RLS já restringe pra quando o portal do parceiro existir). Operacional: tem login pra operar o sistema, mas o painel de Lucro fica escondido pra ela — não entra na divisão, não aparece nos Extratos.</div>
+      <select id="mu-posicao" onchange="toggleMuPosicaoFields()"><option>Sócio</option><option>Comercial</option><option>Operacional</option></select>
+      <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa, e ela entra na divisão do Lucro Sócio. Comercial: é o login do parceiro da rede — ao entrar, vê só o próprio extrato (negócios e repasses vinculados a ele), nada da empresa. Operacional: tem login pra operar o sistema, mas o painel de Lucro fica escondido pra ela — não entra na divisão, não aparece nos Extratos.</div>
     </div>
     <div class="field" id="mu-lucro-pct-field">
       <label>% no Lucro Sócio (opcional)</label>
       <input type="number" step="0.01" min="0" max="100" id="mu-lucro-pct" placeholder="Ex: 60">
       <div class="field-hint">Se você configurar essa % em TODOS os sócios e elas somarem 100%, o Lucro Sócio é dividido nessa proporção (ex: 60/40). Deixe em branco (ou até não somar 100% entre todos) pra manter divisão igual.</div>
+    </div>
+    <div class="field" id="mu-comissionado-field">
+      <label>Comissionado vinculado *</label>
+      <select id="mu-comissionado"><option value="">Selecione...</option></select>
+      <div class="field-hint">Liga esse login ao cadastro dele na Rede — é assim que o sistema sabe quais negócios/repasses mostrar pra ele. O "Dashboard" dele mostra só o próprio extrato.</div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-usuario')">Cancelar</button>
@@ -806,10 +815,11 @@ async function afterLogin(){
     await sbClient.auth.signOut();
     return;
   }
-  currentUser = { email:perfil.email, nome:perfil.nome, posicao:perfil.posicao };
+  currentUser = { email:perfil.email, nome:perfil.nome, posicao:perfil.posicao, comissionadoId:perfil.comissionado_id };
   document.getElementById('screen-login').style.display='none';
   document.getElementById('app').style.display='block';
   document.getElementById('side-user-name').textContent = currentUser.nome;
+  document.querySelectorAll('.nav-admin').forEach(el=>el.style.display = currentUser.posicao==='Comercial' ? 'none' : 'flex');
   await refreshStore();
   goView('dashboard');
 }
@@ -835,18 +845,35 @@ const VIEW_META = {
   extratos:{title:'Extratos',sub:'Extrato individual por comissionado',cta:'',ctaFn:null},
   config:{title:'Configurações',sub:'Divisão da comissão recebida',cta:'',ctaFn:null},
 };
-function goView(v){
-  document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active', el.dataset.view===v));
+function goView(vReq){
+  // Comercial só tem a Dashboard visível na nav, e ela mostra o próprio extrato —
+  // reaproveita a view de Extratos por baixo, só troca o que aparece no topo.
+  const comercial = currentUser && currentUser.posicao==='Comercial';
+  const v = comercial ? 'extratos' : vReq;
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active', el.dataset.view===vReq));
   document.querySelectorAll('.view').forEach(el=>el.classList.remove('active'));
   document.getElementById('view-'+v).classList.add('active');
-  const m = VIEW_META[v];
+  const m = comercial ? {title:'Dashboard', sub:'Seu extrato — negócios e repasses vinculados a você'} : VIEW_META[v];
   document.getElementById('topbar-title').textContent = m.title;
   document.getElementById('topbar-sub').textContent = m.sub;
-  document.getElementById('topbar-negocios').style.display = v==='dashboard' ? 'inline-flex' : 'none';
+  document.getElementById('topbar-negocios').style.display = (v==='dashboard' && !comercial) ? 'inline-flex' : 'none';
   const cta = document.getElementById('topbar-cta');
-  if(m.cta){ cta.style.display='inline-flex'; cta.textContent=m.cta; cta.onclick=m.ctaFn; }
+  if(!comercial && m.cta){ cta.style.display='inline-flex'; cta.textContent=m.cta; cta.onclick=m.ctaFn; }
   else{ cta.style.display='none'; }
+  document.getElementById('ext-pessoa').style.display = comercial ? 'none' : 'inline-block';
+  document.getElementById('ext-pessoa-static').style.display = comercial ? 'inline' : 'none';
   renderAll();
+  if(comercial) prepararExtratoComercial();
+}
+// pré-seleciona o próprio comissionado no Extrato e trava a escolha — é isso que vira o "Dashboard" do Comercial
+function prepararExtratoComercial(){
+  if(!currentUser.comissionadoId){
+    document.getElementById('ext-pessoa-static').textContent = 'Seu login ainda não está vinculado a um comissionado — fale com um sócio.';
+    return;
+  }
+  document.getElementById('ext-pessoa-static').textContent = currentUser.nome;
+  document.getElementById('ext-pessoa').value = 'com:'+currentUser.comissionadoId;
+  renderExtrato();
 }
 
 function renderAll(){
@@ -915,30 +942,59 @@ function renderUsuarios(){
       <td>${esc(u.email)}</td>
       <td><span class="badge ${u.posicao==='Sócio'?'green':u.posicao==='Operacional'?'gray':'blue'}">${esc(u.posicao)}</span>${u.posicao==='Sócio'&&u.lucroPct!=null?` <small style="color:var(--text-faint)">${u.lucroPct}% do lucro</small>`:''}</td>
       <td><div class="row-actions">
+        ${u.posicao==='Comercial' ? `<button class="icon-btn" onclick="enviarAcesso('${esc(u.email)}')" title="Enviar acesso por e-mail">📧</button>` : ''}
         <button class="icon-btn" onclick="openUsuarioModal('${esc(u.email)}')" title="Editar">✎</button>
         <button class="icon-btn" onclick="deleteUsuario('${esc(u.email)}')" title="Excluir">🗑</button>
       </div></td>
     </tr>`).join('');
 }
-function toggleMuLucroPct(){
+async function enviarAcesso(email){
+  const { error } = await sbClient.auth.signInWithOtp({ email, options:{ emailRedirectTo: window.location.origin + window.location.pathname } });
+  if(error){ toast('Erro ao enviar: '+error.message,'err'); return; }
+  toast('Link de acesso enviado pra '+email+'.');
+}
+async function enviarAcessoEmLote(){
+  const comerciais = STORE.usuarios.filter(u=>u.posicao==='Comercial');
+  if(!comerciais.length){ toast('Nenhum usuário Comercial cadastrado ainda.','err'); return; }
+  if(!confirm(`Enviar link de acesso pra ${comerciais.length} usuário(s) Comercial? Sem SMTP customizado, o Supabase tem limite baixo de e-mails por hora — se for muita gente, pode falhar no meio.`)) return;
+  let ok = 0, falhas = [];
+  for(const u of comerciais){
+    const { error } = await sbClient.auth.signInWithOtp({ email: u.email, options:{ emailRedirectTo: window.location.origin + window.location.pathname } });
+    if(error) falhas.push(u.nome); else ok++;
+    await new Promise(r=>setTimeout(r, 1200)); // espaça os envios pra não estourar o limite do Supabase
+  }
+  toast(falhas.length ? `${ok} enviado(s), falhou pra: ${falhas.join(', ')}` : `${ok} link(s) de acesso enviado(s).`, falhas.length?'err':'ok');
+}
+function toggleMuPosicaoFields(){
   document.getElementById('mu-lucro-pct-field').style.display = val('mu-posicao')==='Sócio' ? 'block' : 'none';
+  document.getElementById('mu-comissionado-field').style.display = val('mu-posicao')==='Comercial' ? 'block' : 'none';
+}
+function fillMuComissionadoSelect(selected){
+  const sel = document.getElementById('mu-comissionado');
+  sel.innerHTML = `<option value="">Selecione...</option>` +
+    [...STORE.comissionados].sort((a,b)=>a.nome.localeCompare(b.nome)).map(c=>`<option value="${c.id}">${esc(c.nome)}</option>`).join('');
+  sel.value = selected||'';
 }
 function openUsuarioModal(email){
   document.getElementById('mu-titulo').textContent = email ? 'Editar usuário' : 'Novo usuário';
   setVal('mu-original-email', email||'');
   const emailInput = document.getElementById('mu-email');
+  fillMuComissionadoSelect();
   if(email){
     const u = STORE.usuarios.find(u=>u.email===email);
     setVal('mu-nome', u.nome); setVal('mu-email', u.email); setVal('mu-posicao', u.posicao||'Sócio');
     setVal('mu-lucro-pct', u.lucroPct);
+    fillMuComissionadoSelect(u.comissionadoId);
     emailInput.disabled = true;
-    document.getElementById('mu-email-hint').textContent = 'E-mail não pode ser trocado aqui (é a chave de acesso) — pra mudar, exclua e cadastre de novo.';
+    document.getElementById('mu-email-hint').textContent = u.posicao==='Comercial'
+      ? 'E-mail não pode ser trocado aqui — pra mudar, exclua e cadastre de novo. Não precisa já existir no Supabase: o primeiro acesso é criado sozinho quando você manda o link de acesso pra essa pessoa.'
+      : 'E-mail não pode ser trocado aqui (é a chave de acesso) — pra mudar, exclua e cadastre de novo.';
   } else {
     setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-posicao','Sócio'); setVal('mu-lucro-pct','');
     emailInput.disabled = false;
-    document.getElementById('mu-email-hint').textContent = 'Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao Enterprise Capital, não cria a conta de login.';
+    document.getElementById('mu-email-hint').textContent = 'Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao Enterprise Capital, não cria a conta de login. Exceção: pra posição Comercial, a conta pode ser criada automaticamente pelo link de acesso (veja depois de salvar).';
   }
-  toggleMuLucroPct();
+  toggleMuPosicaoFields();
   document.getElementById('modal-usuario').classList.add('open');
 }
 async function saveUsuario(){
@@ -946,19 +1002,21 @@ async function saveUsuario(){
   const email = val('mu-email').trim().toLowerCase();
   const posicao = val('mu-posicao');
   const lucroPct = (posicao==='Sócio' && val('mu-lucro-pct')!=='') ? Number(val('mu-lucro-pct')) : null;
+  const comissionadoId = (posicao==='Comercial' && val('mu-comissionado')!=='') ? Number(val('mu-comissionado')) : null;
   const originalEmail = val('mu-original-email');
   if(!nome || !email){ toast('Preencha nome e e-mail.','err'); return; }
+  if(posicao==='Comercial' && !comissionadoId){ toast('Selecione o comissionado vinculado.','err'); return; }
   let error;
   if(originalEmail){
-    ({ error } = await sbClient.from('cbs_usuarios').update({ nome, posicao, lucro_pct: lucroPct }).eq('email', originalEmail));
+    ({ error } = await sbClient.from('cbs_usuarios').update({ nome, posicao, lucro_pct: lucroPct, comissionado_id: comissionadoId }).eq('email', originalEmail));
   } else {
-    ({ error } = await sbClient.from('cbs_usuarios').insert({ email, nome, posicao, lucro_pct: lucroPct }));
+    ({ error } = await sbClient.from('cbs_usuarios').insert({ email, nome, posicao, lucro_pct: lucroPct, comissionado_id: comissionadoId }));
   }
   if(error){
     toast('Erro ao salvar: ' + (error.message.includes('duplicate') ? 'já existe um usuário com esse e-mail.' : error.message), 'err');
     return;
   }
-  toast(originalEmail ? 'Usuário atualizado.' : 'Usuário cadastrado — confirme que a conta dele já existe em Authentication → Users no Supabase.');
+  toast(originalEmail ? 'Usuário atualizado.' : (posicao==='Comercial' ? 'Usuário cadastrado — use "Enviar acesso" pra mandar o link de login.' : 'Usuário cadastrado — confirme que a conta dele já existe em Authentication → Users no Supabase.'));
   await refreshStore(); closeModal('modal-usuario'); renderAll();
 }
 async function deleteUsuario(email){
