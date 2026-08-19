@@ -340,7 +340,7 @@ tbody tr:hover{background:var(--card);}
 
       <!-- PIPELINE -->
       <div class="view" id="view-pipeline">
-        <p class="field-hint" style="margin-bottom:14px">Acompanha a situação de cada negócio junto ao Sicoob, do indicado até a conta aberta. Use ◀ Voltar / Avançar ▶ em cada card pra mudar de etapa. "Recebendo" é automático — o negócio cai lá sozinho assim que o primeiro Recebimento é lançado pra ele.</p>
+        <p class="field-hint" style="margin-bottom:14px">Acompanha a situação de cada negócio junto ao Sicoob, do indicado até a conta aberta. Use ◀ Voltar / Avançar ▶ em cada card pra mudar de etapa. "Recebido" é automático e mensal — o negócio aparece ali só nos meses em que teve Recebimento lançado; fora isso, some do quadro (já formou, o controle contínuo fica em Recebimentos/Dashboard/Extratos).</p>
         <div class="toolbar" style="margin-bottom:14px">
           <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim)"><input type="checkbox" id="rel-interno"> Incluir números internos (comissão/valores)</label>
           <button class="btn btn-ghost btn-sm" onclick="gerarRelatorioPipeline()">🖨 Gerar relatório</button>
@@ -1322,21 +1322,22 @@ function renderNegocios(){
 /* ================= PIPELINE (situação do negócio com o Sicoob) ================= */
 // etapas gravadas no banco. "Indicado" continua existindo no banco (é o default de todo negócio novo),
 // mas na tela é mostrado junto com "Documentação enviada" — o card já mostra empresa+originador,
-// não precisava de uma coluna própria só pra isso. "Recebendo" NÃO é etapa gravada: é calculada
-// (já tem Recebimento lançado). "Recusado" é uma saída à parte, não faz parte do avançar/voltar.
+// não precisava de uma coluna própria só pra isso. "Recebido" NÃO é etapa gravada: é calculada
+// (tem Recebimento lançado NO MÊS CORRENTE). "Recusado" é uma saída à parte, não faz parte do avançar/voltar.
 const PIPELINE_SEQ = ['Documentação enviada','Em análise no banco','Conta aberta'];
 function stageEfetivo(n){ return n.situacaoSicoob==='Indicado' ? 'Documentação enviada' : n.situacaoSicoob; }
 function origemTexto(n){
   return (n.comissionados||[]).map(c=>`${esc(comById(c.comissionadoId)?.nome||'?')} (${c.percentual}%)`).join(' · ') || 'Sem originador definido';
 }
-// total/qtd/último recebimento de um negócio — usado pro card de "Recebendo" mostrar números reais, sem digitar nada
-function financeiroNegocio(negId){
-  const recs = STORE.recebimentos.filter(r=>r.negocioId===negId).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+// qtd/total/último recebimento de um negócio DENTRO DE UM MÊS ("AAAA-MM") — o card de "Recebido" só
+// mostra o mês corrente, nunca acumulado: são valores recorrentes mas diferentes mês a mês.
+function financeiroNegocioMes(negId, mes){
+  const recs = STORE.recebimentos.filter(r=>r.negocioId===negId && (r.data||'').slice(0,7)===mes).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   return { qtd: recs.length, total: recs.reduce((a,r)=>a+Number(r.valorRecebido||0),0), ultimo: recs[0] };
 }
 function pipelineCardHtml(n, fin, colKey){
   let nav = '';
-  if(colKey!=='Recebendo'){
+  if(colKey!=='Recebido'){
     const idx = PIPELINE_SEQ.indexOf(stageEfetivo(n));
     nav = `<div style="display:flex;gap:6px;margin-bottom:6px">
       ${idx>0 ? `<button class="btn btn-ghost btn-sm" style="flex:1" onclick="mudarSituacaoSicoob(${n.id},'${PIPELINE_SEQ[idx-1]}')">◀ Voltar</button>` : ''}
@@ -1348,7 +1349,7 @@ function pipelineCardHtml(n, fin, colKey){
     <div class="originador">Originador(es): ${origemTexto(n)}</div>
     ${nav}
     ${fin ? `<div class="fin">
-      Total recebido: <b>${fmtR$(fin.total)}</b><br>
+      Recebido no mês: <b>${fmtR$(fin.total)}</b><br>
       Lançamentos: <b>${fin.qtd}</b>${fin.ultimo?` — último: <b>${fmtR$(fin.ultimo.valorRecebido)}</b> em ${fmtData(fin.ultimo.data)}`:''}
     </div>` : ''}
   </div>`;
@@ -1357,17 +1358,25 @@ const PIPELINE_COLUNAS = [
   {key:'Documentação enviada', label:'Documentação enviada'},
   {key:'Em análise no banco', label:'Em análise no banco'},
   {key:'Conta aberta', label:'Conta aberta'},
-  {key:'Recebendo', label:'Recebendo'},
+  {key:'Recebido', label:'Recebido'},
 ];
-// agrupa os negócios ativos por coluna do pipeline — reaproveitado no quadro e no relatório
+// agrupa os negócios ativos por coluna do pipeline — reaproveitado no quadro e no relatório.
+// "Recebido" só pega quem teve recebimento NO MÊS CORRENTE. Quem já recebeu algum dia mas não
+// neste mês simplesmente some do quadro inteiro — o pipeline acompanha até "formar", depois
+// o controle contínuo já é feito em Recebimentos/Dashboard/Extratos, não faz sentido ficar aqui.
 function agruparPipeline(){
   const grupos = {}; PIPELINE_COLUNAS.forEach(c=>grupos[c.key]=[]);
+  const mesAtual = todayISO().slice(0,7);
   STORE.negocios.filter(n=>n.status!=='Cancelado').forEach(n=>{
-    const fin = financeiroNegocio(n.id);
-    // se já tem recebimento lançado, mostra em "Recebendo" independente da etapa gravada — evita
-    // negócio antigo (de antes dessa feature existir) aparecer "preso" numa etapa inicial por engano.
-    const key = fin.qtd>0 ? 'Recebendo' : stageEfetivo(n);
-    (grupos[key] = grupos[key]||[]).push({n, fin});
+    const finMes = financeiroNegocioMes(n.id, mesAtual);
+    if(finMes.qtd>0){
+      grupos['Recebido'].push({n, fin:finMes});
+      return;
+    }
+    const jaRecebeuAlgumDia = STORE.recebimentos.some(r=>r.negocioId===n.id);
+    if(jaRecebeuAlgumDia) return; // já "formou" em mês anterior — não aparece mais no pipeline
+    const key = stageEfetivo(n);
+    (grupos[key] = grupos[key]||[]).push({n, fin:null});
   });
   return grupos;
 }
@@ -1378,7 +1387,7 @@ function renderPipeline(){
   board.innerHTML = PIPELINE_COLUNAS.map(c=>`
     <div class="kanban-col">
       <div class="kanban-col-head"><span>${esc(c.label)}</span><b>${grupos[c.key].length}</b></div>
-      ${grupos[c.key].length ? grupos[c.key].map(({n,fin})=>pipelineCardHtml(n, c.key==='Recebendo'?fin:null, c.key)).join('') : `<div class="kanban-empty">Vazio</div>`}
+      ${grupos[c.key].length ? grupos[c.key].map(({n,fin})=>pipelineCardHtml(n, c.key==='Recebido'?fin:null, c.key)).join('') : `<div class="kanban-empty">Vazio</div>`}
     </div>
   `).join('');
 }
@@ -1405,12 +1414,12 @@ function gerarRelatorioPipeline(){
           <thead><tr>
             <th style="text-align:left;padding:4px;border-bottom:1px solid #ccc">Empresa</th>
             ${interno ? '<th style="text-align:left;padding:4px;border-bottom:1px solid #ccc">Originador(es)</th>' : ''}
-            ${interno && c.key==='Recebendo' ? '<th style="text-align:right;padding:4px;border-bottom:1px solid #ccc">Total recebido</th>' : ''}
+            ${interno && c.key==='Recebido' ? '<th style="text-align:right;padding:4px;border-bottom:1px solid #ccc">Recebido no mês</th>' : ''}
           </tr></thead>
           <tbody>${itens.map(({n,fin})=>`<tr>
             <td style="padding:4px">${esc(n.empresaCliente)}</td>
             ${interno ? `<td style="padding:4px">${esc(origemTexto(n))}</td>` : ''}
-            ${interno && c.key==='Recebendo' ? `<td style="padding:4px;text-align:right">${fmtR$(fin.total)}</td>` : ''}
+            ${interno && c.key==='Recebido' ? `<td style="padding:4px;text-align:right">${fmtR$(fin.total)}</td>` : ''}
           </tr>`).join('')}</tbody>
         </table>`;
   });
