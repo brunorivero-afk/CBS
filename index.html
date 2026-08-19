@@ -1404,18 +1404,20 @@ function gerarRelatorioPipeline(){
       : `<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:8px">
           <thead><tr>
             <th style="text-align:left;padding:4px;border-bottom:1px solid #ccc">Empresa</th>
-            <th style="text-align:left;padding:4px;border-bottom:1px solid #ccc">Originador(es)</th>
+            ${interno ? '<th style="text-align:left;padding:4px;border-bottom:1px solid #ccc">Originador(es)</th>' : ''}
             ${interno && c.key==='Recebendo' ? '<th style="text-align:right;padding:4px;border-bottom:1px solid #ccc">Total recebido</th>' : ''}
           </tr></thead>
           <tbody>${itens.map(({n,fin})=>`<tr>
             <td style="padding:4px">${esc(n.empresaCliente)}</td>
-            <td style="padding:4px">${esc(origemTexto(n))}</td>
+            ${interno ? `<td style="padding:4px">${esc(origemTexto(n))}</td>` : ''}
             ${interno && c.key==='Recebendo' ? `<td style="padding:4px;text-align:right">${fmtR$(fin.total)}</td>` : ''}
           </tr>`).join('')}</tbody>
         </table>`;
   });
 
-  const lideres = STORE.comissionados.filter(c => STORE.comissionados.some(x=>x.indicadoPor===c.id)).sort((a,b)=>a.nome.localeCompare(b.nome));
+  // seção de Líderes de equipe é 100% sobre atribuição/pessoas — não faz sentido nenhum na versão
+  // sem números internos (relatório pro gerente é só processo: empresa + etapa, ninguém de dentro).
+  const lideres = interno ? STORE.comissionados.filter(c => STORE.comissionados.some(x=>x.indicadoPor===c.id)).sort((a,b)=>a.nome.localeCompare(b.nome)) : [];
   if(lideres.length){
     html += `<h2 style="margin-top:26px">Líderes de equipe</h2>`;
     lideres.forEach(lider=>{
