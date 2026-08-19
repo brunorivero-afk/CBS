@@ -72,9 +72,14 @@ create table if not exists cbs_negocios (
   cnpj text,
   data_inicio date,
   status text not null default 'Ativo' check (status in ('Ativo','Encerrado','Cancelado')),
+  situacao_sicoob text not null default 'Indicado' check (situacao_sicoob in ('Indicado','Documentação enviada','Em análise no banco','Conta aberta','Recusado')),
   observacoes text,
   created_at timestamptz default now()
 );
+alter table cbs_negocios add column if not exists situacao_sicoob text not null default 'Indicado';
+do $$ begin
+  alter table cbs_negocios add constraint cbs_negocios_situacao_sicoob_check check (situacao_sicoob in ('Indicado','Documentação enviada','Em análise no banco','Conta aberta','Recusado'));
+exception when duplicate_object then null; end $$;
 
 alter table cbs_negocios enable row level security;
 drop policy if exists "cbs_negocios - só autorizados" on cbs_negocios;
