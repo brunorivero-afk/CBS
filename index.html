@@ -122,8 +122,8 @@ a{color:inherit;}
 .stat-card .hint{font-size:11.5px;color:var(--text-faint);margin-top:4px;}
 
 /* ---------- PIPELINE (KANBAN) ---------- */
-.kanban{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:start;}
-.kanban-col{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:9px;min-width:0;}
+.kanban{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;align-items:start;}
+.kanban-col{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:7px;min-width:0;}
 .kanban-col-head{display:flex;justify-content:space-between;align-items:center;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.02em;color:var(--text-dim);padding:2px 2px 9px;}
 .kanban-col-head span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .kanban-col-head b{flex:0 0 auto;color:var(--text);font-size:11px;background:var(--card2);border-radius:20px;padding:1px 7px;margin-left:5px;}
@@ -1340,12 +1340,10 @@ function renderNegocios(){
 }
 
 /* ================= PIPELINE (situação do negócio com o Sicoob) ================= */
-// etapas gravadas no banco. "Indicado" continua existindo no banco (é o default de todo negócio novo),
-// mas na tela é mostrado junto com "Documentação enviada" — o card já mostra empresa+originador,
-// não precisava de uma coluna própria só pra isso. "Recebido" NÃO é etapa gravada: é calculada
-// (tem Recebimento lançado NO MÊS CORRENTE). "Recusado" é uma saída à parte, não faz parte do avançar/voltar.
-const PIPELINE_SEQ = ['Documentação enviada','Em análise no banco','Conta aberta'];
-function stageEfetivo(n){ return n.situacaoSicoob==='Indicado' ? 'Documentação enviada' : n.situacaoSicoob; }
+// etapas gravadas no banco. "Indicado" é o default de todo negócio novo e tem coluna própria
+// ("1º Contato") — é a fase de negociação, antes de qualquer documentação ter sido enviada de fato.
+// "Recebido" NÃO é etapa gravada: é calculada (tem Recebimento lançado NO MÊS CORRENTE).
+const PIPELINE_SEQ = ['Indicado','Documentação enviada','Em análise no banco','Conta aberta'];
 function origemTexto(n){
   return (n.comissionados||[]).map(c=>`${esc(comById(c.comissionadoId)?.nome||'?')} (${c.percentual}%)`).join(' · ') || 'Sem originador definido';
 }
@@ -1358,7 +1356,7 @@ function financeiroNegocioMes(negId, mes){
 function pipelineCardHtml(n, fin, colKey){
   let nav = '';
   if(colKey!=='Recebido'){
-    const idx = PIPELINE_SEQ.indexOf(stageEfetivo(n));
+    const idx = PIPELINE_SEQ.indexOf(n.situacaoSicoob);
     nav = `<div style="display:flex;gap:6px;margin-bottom:6px">
       ${idx>0 ? `<button class="btn btn-ghost btn-sm" style="flex:1" onclick="mudarSituacaoSicoob(${n.id},'${PIPELINE_SEQ[idx-1]}')">◀ Voltar</button>` : ''}
       ${idx<PIPELINE_SEQ.length-1 ? `<button class="btn btn-primary btn-sm" style="flex:1" onclick="mudarSituacaoSicoob(${n.id},'${PIPELINE_SEQ[idx+1]}')">Avançar ▶</button>` : ''}
@@ -1375,6 +1373,7 @@ function pipelineCardHtml(n, fin, colKey){
   </div>`;
 }
 const PIPELINE_COLUNAS = [
+  {key:'Indicado', label:'Em Negociação'},
   {key:'Documentação enviada', label:'Documentação enviada'},
   {key:'Em análise no banco', label:'Em análise no banco'},
   {key:'Conta aberta', label:'Conta aberta'},
@@ -1395,7 +1394,7 @@ function agruparPipeline(){
     }
     const jaRecebeuAlgumDia = STORE.recebimentos.some(r=>r.negocioId===n.id);
     if(jaRecebeuAlgumDia) return; // já "formou" em mês anterior — não aparece mais no pipeline
-    const key = stageEfetivo(n);
+    const key = n.situacaoSicoob;
     (grupos[key] = grupos[key]||[]).push({n, fin:null});
   });
   return grupos;
