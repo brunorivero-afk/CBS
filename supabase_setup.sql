@@ -17,6 +17,19 @@ create table if not exists cbs_usuarios (
 );
 alter table cbs_usuarios add column if not exists lucro_pct numeric(6,2);
 alter table cbs_usuarios add column if not exists comissionado_id bigint;
+alter table cbs_usuarios add column if not exists apelido text;
+do $$ begin
+  alter table cbs_usuarios add constraint cbs_usuarios_apelido_key unique (apelido);
+exception when duplicate_object then null; end $$;
+
+-- resolve apelido -> e-mail pra login curto. security definer + grant pro anon porque isso roda
+-- ANTES de autenticar (não dá pra depender de RLS de cbs_usuarios, que exige estar logado).
+-- Só devolve o e-mail (nada mais da tabela) e só quando existe o apelido — não dá pra enumerar usuários por aqui.
+create or replace function cbs_email_by_apelido(p_apelido text)
+returns text language sql security definer stable as $$
+  select email from cbs_usuarios where apelido = lower(p_apelido) limit 1;
+$$;
+grant execute on function cbs_email_by_apelido(text) to anon, authenticated;
 
 create or replace function cbs_is_authorized()
 returns boolean language sql security definer stable as $$

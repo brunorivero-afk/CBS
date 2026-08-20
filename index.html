@@ -249,8 +249,8 @@ tbody tr:hover{background:var(--card);}
     <p>Controle da rede comercial</p>
     <div class="login-err" id="login-err">E-mail ou senha incorretos.</div>
     <div class="field">
-      <label>E-mail</label>
-      <input type="email" id="l-email" placeholder="seu@email.com" autocomplete="username">
+      <label>Usuário</label>
+      <input type="text" id="l-email" placeholder="apelido ou e-mail" autocomplete="username">
     </div>
     <div class="field">
       <label>Senha</label>
@@ -597,6 +597,10 @@ tbody tr:hover{background:var(--card);}
       <div class="field-hint" id="mu-email-hint">Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao Enterprise Capital, não cria a conta de login.</div>
     </div>
     <div class="field">
+      <label>Apelido (login curto, opcional)</label><input type="text" id="mu-apelido" autocomplete="off" placeholder="Ex: bruno">
+      <div class="field-hint">Se preencher, a pessoa pode digitar isso em vez do e-mail completo na tela de login. Sem espaço, sem acento — só letras/números.</div>
+    </div>
+    <div class="field">
       <label>Posição</label>
       <select id="mu-posicao" onchange="toggleMuPosicaoFields()"><option>Sócio</option><option>Comercial</option><option>Operacional</option></select>
       <div class="field-hint">Sócio: o extrato dessa pessoa mostra a parte dela no lucro da empresa, e ela entra na divisão do Lucro Sócio. Comercial: é o login do parceiro da rede — ao entrar, vê só o próprio extrato (negócios e repasses vinculados a ele), nada da empresa. Operacional: tem login pra operar o sistema, mas o painel de Lucro fica escondido pra ela — não entra na divisão, não aparece nos Extratos.</div>
@@ -741,7 +745,7 @@ async function refreshStore(){
   if(erro){ toast('Erro ao carregar dados: '+erro.message, 'err'); return; }
 
   STORE.usuarios = (usuariosR.data||[]).map(u=>({ email:u.email, nome:u.nome, posicao:u.posicao,
-    lucroPct: u.lucro_pct!=null ? Number(u.lucro_pct) : null, comissionadoId: u.comissionado_id }));
+    lucroPct: u.lucro_pct!=null ? Number(u.lucro_pct) : null, comissionadoId: u.comissionado_id, apelido: u.apelido }));
 
   STORE.comissionados = (comissionadosR.data||[]).map(c=>({
     id:c.id, nome:c.nome, telefone:c.telefone, email:c.email, pix:c.pix, status:c.status,
@@ -825,16 +829,29 @@ function recebimentoTravado(r){
 
 /* ================= LOGIN (Supabase Auth de verdade) ================= */
 async function doLogin(){
-  const email = val('l-email').trim().toLowerCase();
+  const usuario = val('l-email').trim().toLowerCase();
   const senha = val('l-senha');
   const btn = document.getElementById('btn-login');
   document.getElementById('login-err').style.display='none';
-  if(!email || !senha){ document.getElementById('login-err').textContent='Preencha e-mail e senha.'; document.getElementById('login-err').style.display='block'; return; }
+  if(!usuario || !senha){ document.getElementById('login-err').textContent='Preencha usuário e senha.'; document.getElementById('login-err').style.display='block'; return; }
   btn.disabled = true; btn.textContent = 'Entrando...';
+  // se não digitou um e-mail, trata como apelido e resolve pro e-mail real antes de autenticar
+  // (função security definer — não expõe a tabela cbs_usuarios pra quem ainda não logou).
+  let email = usuario;
+  if(!usuario.includes('@')){
+    const { data: apelidoData, error: apelidoErr } = await sbClient.rpc('cbs_email_by_apelido', { p_apelido: usuario });
+    if(apelidoErr || !apelidoData){
+      btn.disabled = false; btn.textContent = 'Entrar';
+      document.getElementById('login-err').textContent = 'Usuário ou senha incorretos.';
+      document.getElementById('login-err').style.display='block';
+      return;
+    }
+    email = apelidoData;
+  }
   const { data, error } = await sbClient.auth.signInWithPassword({ email, password: senha });
   btn.disabled = false; btn.textContent = 'Entrar';
   if(error || !data.session){
-    document.getElementById('login-err').textContent = 'E-mail ou senha incorretos.';
+    document.getElementById('login-err').textContent = 'Usuário ou senha incorretos.';
     document.getElementById('login-err').style.display='block';
     return;
   }
@@ -978,7 +995,7 @@ function renderUsuarios(){
   tb.innerHTML = list.map(u=>`
     <tr>
       <td><b>${esc(u.nome)}</b></td>
-      <td>${esc(u.email)}</td>
+      <td>${esc(u.email)}${u.apelido?`<br><small style="color:var(--text-faint)">apelido: ${esc(u.apelido)}</small>`:''}</td>
       <td><span class="badge ${u.posicao==='Sócio'?'green':u.posicao==='Operacional'?'gray':'blue'}">${esc(u.posicao)}</span>${u.posicao==='Sócio'&&u.lucroPct!=null?` <small style="color:var(--text-faint)">${u.lucroPct}% do lucro</small>`:''}</td>
       <td><div class="row-actions">
         ${u.posicao==='Comercial' ? `<button class="icon-btn" onclick="enviarAcesso('${esc(u.email)}')" title="Enviar acesso por e-mail">📧</button>` : ''}
@@ -1022,14 +1039,14 @@ function openUsuarioModal(email){
   if(email){
     const u = STORE.usuarios.find(u=>u.email===email);
     setVal('mu-nome', u.nome); setVal('mu-email', u.email); setVal('mu-posicao', u.posicao||'Sócio');
-    setVal('mu-lucro-pct', u.lucroPct);
+    setVal('mu-lucro-pct', u.lucroPct); setVal('mu-apelido', u.apelido);
     fillMuComissionadoSelect(u.comissionadoId);
     emailInput.disabled = true;
     document.getElementById('mu-email-hint').textContent = u.posicao==='Comercial'
       ? 'E-mail não pode ser trocado aqui — pra mudar, exclua e cadastre de novo. Não precisa já existir no Supabase: o primeiro acesso é criado sozinho quando você manda o link de acesso pra essa pessoa.'
       : 'E-mail não pode ser trocado aqui (é a chave de acesso) — pra mudar, exclua e cadastre de novo.';
   } else {
-    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-posicao','Sócio'); setVal('mu-lucro-pct','');
+    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-posicao','Sócio'); setVal('mu-lucro-pct',''); setVal('mu-apelido','');
     emailInput.disabled = false;
     document.getElementById('mu-email-hint').textContent = 'Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao Enterprise Capital, não cria a conta de login. Exceção: pra posição Comercial, a conta pode ser criada automaticamente pelo link de acesso (veja depois de salvar).';
   }
@@ -1043,16 +1060,19 @@ async function saveUsuario(){
   const lucroPct = (posicao==='Sócio' && val('mu-lucro-pct')!=='') ? Number(val('mu-lucro-pct')) : null;
   const comissionadoId = (posicao==='Comercial' && val('mu-comissionado')!=='') ? Number(val('mu-comissionado')) : null;
   const originalEmail = val('mu-original-email');
+  let apelido = val('mu-apelido').trim().toLowerCase();
+  if(apelido && !/^[a-z0-9]+$/.test(apelido)){ toast('Apelido só pode ter letras e números, sem espaço ou acento.','err'); return; }
+  apelido = apelido || null;
   if(!nome || !email){ toast('Preencha nome e e-mail.','err'); return; }
   if(posicao==='Comercial' && !comissionadoId){ toast('Selecione o comissionado vinculado.','err'); return; }
   let error;
   if(originalEmail){
-    ({ error } = await sbClient.from('cbs_usuarios').update({ nome, posicao, lucro_pct: lucroPct, comissionado_id: comissionadoId }).eq('email', originalEmail));
+    ({ error } = await sbClient.from('cbs_usuarios').update({ nome, posicao, lucro_pct: lucroPct, comissionado_id: comissionadoId, apelido }).eq('email', originalEmail));
   } else {
-    ({ error } = await sbClient.from('cbs_usuarios').insert({ email, nome, posicao, lucro_pct: lucroPct, comissionado_id: comissionadoId }));
+    ({ error } = await sbClient.from('cbs_usuarios').insert({ email, nome, posicao, lucro_pct: lucroPct, comissionado_id: comissionadoId, apelido }));
   }
   if(error){
-    toast('Erro ao salvar: ' + (error.message.includes('duplicate') ? 'já existe um usuário com esse e-mail.' : error.message), 'err');
+    toast('Erro ao salvar: ' + (error.message.includes('duplicate') ? 'já existe um usuário com esse e-mail ou apelido.' : error.message), 'err');
     return;
   }
   toast(originalEmail ? 'Usuário atualizado.' : (posicao==='Comercial' ? 'Usuário cadastrado — use "Enviar acesso" pra mandar o link de login.' : 'Usuário cadastrado — confirme que a conta dele já existe em Authentication → Users no Supabase.'));
