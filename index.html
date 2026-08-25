@@ -533,6 +533,7 @@ tbody tr:hover{background:var(--card);}
     <div id="pa-totais" style="margin-top:16px;font-size:13px;text-align:right"></div>
   </div>
   <div id="pr-report" style="display:none"></div>
+  <div id="pn-nda" style="display:none"></div>
 </div>
 
 <!-- ============ MODAL: NEGOCIO ============ -->
@@ -581,14 +582,22 @@ tbody tr:hover{background:var(--card);}
       <div class="field"><label>Chave PIX</label><input type="text" id="mc-pix"></div>
       <div class="field"><label>Status</label><select id="mc-status"><option>Ativo</option><option>Inativo</option></select></div>
     </div>
+    <div class="form-row">
+      <div class="field"><label>CPF</label><input type="text" id="mc-cpf" placeholder="000.000.000-00"></div>
+      <div class="field"><label>Tamanho da equipe (se lidera rede própria)</label><input type="number" min="0" id="mc-equipe" placeholder="ex: 12"></div>
+    </div>
     <div class="field">
       <label>Indicado / vinculado a</label>
       <select id="mc-indicado"><option value="">Nenhum (entrou por conta própria)</option></select>
-      <div class="field-hint">Se essa pessoa entrou na rede através de outro comissionado (ex: vendem juntos, ou foi trazida por alguém), selecione aqui. Ou, se esse cadastro representa a participação de um sócio como comissionado num negócio específico, vincule direto ao sócio na lista. É só pra referência — a divisão de comissão de cada negócio continua sendo configurada manualmente.</div>
+      <div class="field-hint">Se essa pessoa entrou na rede através de outro comissionado (ex: vendem juntos, ou foi trazida por alguém), selecione aqui. Ou, se esse cadastro representa a participação de um sócio como comissionado num negócio específico, vincule direto ao sócio na lista. É só pra referência — a divisão de comissão de cada negócio continua sendo configurada manualmente. O campo "Tamanho da equipe" acima é só um número informado por quem lidera a própria rede — o sistema não cadastra essa sub-rede pessoa a pessoa.</div>
     </div>
     <div class="field"><label>Observações</label><textarea id="mc-obs"></textarea></div>
     <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
       <label>Termo de confidencialidade (NDA)</label>
+      <div class="form-row" style="align-items:center">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="gerarTermoNDA()">📄 Gerar termo (PDF) pra enviar</button>
+        <div class="field-hint" style="margin:0">Gera o termo já preenchido com nome/CPF, pra você baixar/imprimir e mandar pra assinatura por fora.</div>
+      </div>
       <div class="form-row">
         <div class="field"><select id="mc-contrato-status"><option value="Pendente">Pendente</option><option value="Assinado">Assinado</option></select></div>
         <div class="field"><input type="date" id="mc-contrato-data" title="Data da assinatura"></div>
@@ -597,7 +606,7 @@ tbody tr:hover{background:var(--card);}
         <div class="field"><input type="file" id="mc-contrato-arquivo" accept=".pdf,image/*"></div>
         <button type="button" class="btn btn-ghost btn-sm" id="mc-contrato-ver" style="display:none" onclick="verContrato(comById(Number(val('mc-id')))?.contratoPath)">📎 Ver termo assinado</button>
       </div>
-      <div class="field-hint">Envie o PDF do termo assinado pelo comissionado. Fica guardado num bucket privado — só quem tem acesso ao sistema consegue abrir.</div>
+      <div class="field-hint">Depois que a pessoa assinar (à mão + foto/scan, ou app de assinatura por fora), envie o PDF assinado aqui. Fica guardado num bucket privado — só quem tem acesso ao sistema consegue abrir.</div>
     </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-comissionado')">Cancelar</button>
@@ -768,9 +777,10 @@ async function refreshStore(){
     lucroPct: u.lucro_pct!=null ? Number(u.lucro_pct) : null, comissionadoId: u.comissionado_id, apelido: u.apelido }));
 
   STORE.comissionados = (comissionadosR.data||[]).map(c=>({
-    id:c.id, nome:c.nome, telefone:c.telefone, email:c.email, pix:c.pix, status:c.status,
+    id:c.id, nome:c.nome, telefone:c.telefone, email:c.email, pix:c.pix, cpf:c.cpf, status:c.status,
     indicadoPor:c.indicado_por, socioVinculado:c.socio_vinculado, observacoes:c.observacoes, dataCadastro:c.created_at,
-    contratoStatus:c.contrato_status||'Pendente', contratoData:c.contrato_data, contratoPath:c.contrato_path
+    contratoStatus:c.contrato_status||'Pendente', contratoData:c.contrato_data, contratoPath:c.contrato_path,
+    tamanhoEquipeEstimado:c.tamanho_equipe_estimado
   }));
 
   const ncByNeg = {};
@@ -1522,6 +1532,40 @@ function gerarRelatorioPipeline(){
   document.getElementById('pr-report').innerHTML = html;
   document.getElementById('pa-extrato').style.display='none';
   document.getElementById('pr-report').style.display='block';
+  document.getElementById('pn-nda').style.display='none';
+  window.print();
+}
+// gera o Termo de Confidencialidade (NDA) já preenchido com nome/CPF do modal de Comissionado aberto
+// no momento — pra baixar/imprimir e mandar pra assinatura por fora. Não depende de já ter salvo.
+function gerarTermoNDA(){
+  const nome = val('mc-nome').trim();
+  if(!nome){ toast('Informe ao menos o nome antes de gerar o termo.','err'); return; }
+  const cpf = val('mc-cpf').trim();
+  const hoje = fmtData(todayISO());
+  const html = `
+    <h2 style="text-align:center;margin-bottom:4px">TERMO DE CONFIDENCIALIDADE E COMPROMISSO ÉTICO</h2>
+    <div style="text-align:center;color:#777;font-size:11.5px;margin-bottom:22px">(gerado em ${hoje})</div>
+    <p style="font-size:13px;line-height:1.6">Pelo presente termo, de um lado <b>Enterprise Capital</b>, doravante denominada <b>CONTRATANTE</b>, e de outro <b>${esc(nome)}</b>${cpf?`, portador(a) do CPF nº <b>${esc(cpf)}</b>`:''}, doravante denominado(a) <b>PARCEIRO COMERCIAL</b>, têm entre si justo e acordado o seguinte:</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">1. Objeto</h3>
+    <p style="font-size:13px;line-height:1.6">O PARCEIRO COMERCIAL atuará na originação e indicação de clientes para produtos e serviços bancários, em parceria com a CONTRATANTE, tendo acesso, no exercício dessa atividade, a informações confidenciais sobre a estrutura comercial, valores de comissionamento, relacionamento institucional com a instituição financeira parceira e dados de clientes.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">2. Informações confidenciais</h3>
+    <p style="font-size:13px;line-height:1.6">Consideram-se confidenciais, sem limitação: percentuais, valores e estrutura de comissionamento praticados pela CONTRATANTE; qualquer informação sobre o relacionamento institucional da CONTRATANTE com funcionários, gerentes, diretores ou representantes da instituição financeira parceira; dados pessoais e financeiros de clientes obtidos em razão da atividade de indicação; estratégias comerciais, scripts de abordagem, listas de contatos e demais materiais internos fornecidos pela CONTRATANTE.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">3. Obrigações do Parceiro Comercial</h3>
+    <p style="font-size:13px;line-height:1.6">O PARCEIRO COMERCIAL compromete-se a: (a) não divulgar, comentar, discutir ou repassar a terceiros — incluindo outros parceiros comerciais, clientes, familiares ou em grupos de mensagens — qualquer informação confidencial, especialmente valores/percentuais de comissão e detalhes do relacionamento com a instituição financeira; (b) utilizar, na abordagem a clientes, exclusivamente o discurso e os materiais orientados pela CONTRATANTE, abstendo-se de promessas ou insinuações não autorizadas sobre tratamento preferencial ou vínculo com pessoas específicas dentro da instituição financeira; (c) verificar, antes de qualquer indicação, se o cliente já possui relacionamento ativo com a mesma instituição financeira em qualquer outra agência/unidade, abstendo-se de originar propostas nesses casos; (d) não se representar perante o cliente ou terceiros como funcionário ou porta-voz da instituição financeira; (e) comunicar imediatamente à CONTRATANTE qualquer situação que possa configurar quebra deste termo ou risco à parceria comercial.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">4. Vigência</h3>
+    <p style="font-size:13px;line-height:1.6">Este termo permanece em vigor durante todo o período da relação comercial entre as partes e por 2 (dois) anos após seu encerramento, independentemente do motivo da cessação.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">5. Penalidades</h3>
+    <p style="font-size:13px;line-height:1.6">O descumprimento de qualquer obrigação prevista neste termo autoriza a CONTRATANTE a suspender ou encerrar imediatamente a parceria comercial, sem prejuízo de comissões já apuradas até a data do desligamento, e a pleitear indenização por perdas e danos decorrentes de prejuízo à relação da CONTRATANTE com a instituição financeira parceira.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">6. Disposições gerais</h3>
+    <p style="font-size:13px;line-height:1.6">Este termo não cria vínculo empregatício entre as partes, mantendo-se a natureza autônoma e comercial da relação.</p>
+    <p style="font-size:13px;margin-top:26px">${hoje}</p>
+    <div style="margin-top:50px;font-size:13px">_______________________________________<br><b>Enterprise Capital</b> — Contratante</div>
+    <div style="margin-top:40px;font-size:13px">_______________________________________<br><b>${esc(nome)}</b>${cpf?` — CPF nº ${esc(cpf)}`:''} — Parceiro Comercial</div>
+  `;
+  document.getElementById('pn-nda').innerHTML = html;
+  document.getElementById('pa-extrato').style.display='none';
+  document.getElementById('pr-report').style.display='none';
+  document.getElementById('pn-nda').style.display='block';
   window.print();
 }
 
@@ -1695,7 +1739,7 @@ function renderRede(){
     const socioVinc = c.socioVinculado ? STORE.usuarios.find(u=>u.email===c.socioVinculado) : null;
     const totalAjustes = ajustesDoComissionado(c.id).reduce((a,j)=>a+Number(j.valor||0),0);
     return `<tr>
-      <td class="name-cell"><b>${esc(c.nome)}</b>${c.contratoStatus!=='Assinado'?`<small style="color:var(--warn)">⚠ NDA pendente</small>`:''}${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}</td>
+      <td class="name-cell"><b>${esc(c.nome)}</b>${c.contratoStatus!=='Assinado'?`<small style="color:var(--warn)">⚠ NDA pendente</small>`:''}${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${c.tamanhoEquipeEstimado?`<small>+${c.tamanhoEquipeEstimado} na rede própria dele (informado, não cadastrada)</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}</td>
       <td>${esc(c.telefone||c.email||'—')}</td>
       <td>${statusBadge(c.status)}</td>
       <td>${negs}</td>
@@ -1723,12 +1767,13 @@ function openComissionadoModal(id){
   if(id){
     const c = comById(id);
     setVal('mc-nome',c.nome); setVal('mc-tel',c.telefone); setVal('mc-email',c.email);
-    setVal('mc-pix',c.pix); setVal('mc-status',c.status); setVal('mc-obs',c.observacoes);
+    setVal('mc-pix',c.pix); setVal('mc-cpf',c.cpf); setVal('mc-equipe', c.tamanhoEquipeEstimado!=null?c.tamanhoEquipeEstimado:'');
+    setVal('mc-status',c.status); setVal('mc-obs',c.observacoes);
     setVal('mc-indicado', c.indicadoPor ? c.indicadoPor : (c.socioVinculado ? 'socio:'+c.socioVinculado : ''));
     setVal('mc-contrato-status', c.contratoStatus||'Pendente'); setVal('mc-contrato-data', c.contratoData||'');
     document.getElementById('mc-contrato-ver').style.display = c.contratoPath ? 'inline-block' : 'none';
   } else {
-    ['mc-nome','mc-tel','mc-email','mc-pix','mc-obs'].forEach(id=>setVal(id,''));
+    ['mc-nome','mc-tel','mc-email','mc-pix','mc-cpf','mc-equipe','mc-obs'].forEach(id=>setVal(id,''));
     setVal('mc-status','Ativo'); setVal('mc-indicado','');
     setVal('mc-contrato-status','Pendente'); setVal('mc-contrato-data','');
     document.getElementById('mc-contrato-ver').style.display = 'none';
@@ -1749,7 +1794,9 @@ async function saveComissionado(){
       atual = atual.indicadoPor ? comById(atual.indicadoPor) : null;
     }
   }
+  const equipeVal = val('mc-equipe').trim();
   const payload = { nome, telefone: val('mc-tel').trim()||null, email: val('mc-email').trim()||null, pix: val('mc-pix').trim()||null,
+    cpf: val('mc-cpf').trim()||null, tamanho_equipe_estimado: equipeVal ? Number(equipeVal) : null,
     status: val('mc-status'), observacoes: val('mc-obs').trim()||null, indicado_por: indicadoPor, socio_vinculado: vinculoSocio,
     contrato_status: val('mc-contrato-status'), contrato_data: val('mc-contrato-data')||null };
   const arquivo = document.getElementById('mc-contrato-arquivo').files[0];
@@ -2204,6 +2251,7 @@ function renderExtrato(){
 function printExtrato(){
   document.getElementById('pa-extrato').style.display='block';
   document.getElementById('pr-report').style.display='none';
+  document.getElementById('pn-nda').style.display='none';
   const raw = document.getElementById('ext-pessoa').value;
   if(!raw){ toast('Selecione uma pessoa.','err'); return; }
   const { tipo, chave } = parseExtratoValue(raw);

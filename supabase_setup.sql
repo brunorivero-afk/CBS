@@ -58,22 +58,26 @@ create table if not exists cbs_comissionados (
   telefone text,
   email text,
   pix text,
+  cpf text,
   status text not null default 'Ativo' check (status in ('Ativo','Inativo')),
   indicado_por bigint references cbs_comissionados(id) on delete set null,
   socio_vinculado text references cbs_usuarios(email) on delete set null, -- marca que esse cadastro representa a participação de um sócio como comissionado
   contrato_status text not null default 'Pendente' check (contrato_status in ('Pendente','Assinado')),
   contrato_data date,
   contrato_path text, -- arquivo do termo assinado, guardado no bucket privado cbs-contratos
+  tamanho_equipe_estimado integer, -- pra líder de rede própria não cadastrada pessoa a pessoa: nº informado por ele, só pra acompanhar crescimento
   observacoes text,
   created_at timestamptz default now()
 );
 alter table cbs_comissionados add column if not exists socio_vinculado text references cbs_usuarios(email) on delete set null;
+alter table cbs_comissionados add column if not exists cpf text;
 alter table cbs_comissionados add column if not exists contrato_status text not null default 'Pendente';
 do $$ begin
   alter table cbs_comissionados add constraint cbs_comissionados_contrato_status_check check (contrato_status in ('Pendente','Assinado'));
 exception when duplicate_object then null; end $$;
 alter table cbs_comissionados add column if not exists contrato_data date;
 alter table cbs_comissionados add column if not exists contrato_path text;
+alter table cbs_comissionados add column if not exists tamanho_equipe_estimado integer;
 
 alter table cbs_comissionados enable row level security;
 drop policy if exists "cbs_comissionados - só autorizados" on cbs_comissionados;
