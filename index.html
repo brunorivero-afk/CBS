@@ -382,7 +382,7 @@ tbody tr:hover{background:var(--card);}
           <div class="panel-head">
             <h3>Rede comercial</h3>
             <div class="toolbar">
-              <button class="btn btn-primary btn-sm" onclick="openComissionadoModal()">+ Novo comissionado</button>
+              <button class="btn btn-primary btn-sm" onclick="openComissionadoModal()">+ Novo integrante</button>
             </div>
           </div>
           <div class="field-hint" id="rede-filtro-ativo" style="display:none;margin-bottom:12px"></div>
@@ -582,7 +582,7 @@ tbody tr:hover{background:var(--card);}
 <!-- ============ MODAL: COMISSIONADO ============ -->
 <div class="modal-overlay" id="modal-comissionado">
   <div class="modal">
-    <div class="modal-head"><h3 id="mc-titulo">Novo comissionado</h3><button class="modal-close" onclick="closeModal('modal-comissionado')">✕</button></div>
+    <div class="modal-head"><h3 id="mc-titulo">Novo integrante</h3><button class="modal-close" onclick="closeModal('modal-comissionado')">✕</button></div>
     <input type="hidden" id="mc-id">
     <div class="field"><label>Nome *</label><input type="text" id="mc-nome"></div>
     <div class="form-row">
@@ -607,8 +607,8 @@ tbody tr:hover{background:var(--card);}
     <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
       <label>Onboarding</label>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <label class="chk" style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.4"><input type="checkbox" id="mc-onb-script" style="margin-top:3px;flex:0 0 auto"><span>Recebeu e leu o script de abordagem padronizado</span></label>
-        <label class="chk" style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.4"><input type="checkbox" id="mc-onb-duplicidade" style="margin-top:3px;flex:0 0 auto"><span>Foi avisado da regra: cliente já correntista no mesmo banco (em qualquer sede) fica de fora</span></label>
+        <label class="chk" style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.4"><input type="checkbox" id="mc-onb-script" style="width:auto;margin-top:3px;flex:0 0 auto"><span>Recebeu e leu o script de abordagem padronizado</span></label>
+        <label class="chk" style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.4"><input type="checkbox" id="mc-onb-duplicidade" style="width:auto;margin-top:3px;flex:0 0 auto"><span>Foi avisado da regra: cliente já correntista no mesmo banco (em qualquer sede) fica de fora</span></label>
       </div>
       <div class="field-hint">O contrato de parceria (abaixo) é o 3º item do onboarding — some junto na barra de status assim que estiver "Assinado".</div>
     </div>
@@ -958,7 +958,7 @@ const VIEW_META = {
   negocios:{title:'Negócios',sub:'Relacionamentos e clientes cadastrados',cta:'+ Novo negócio',ctaFn:()=>openNegocioModal()},
   pipeline:{title:'Pipeline',sub:'Situação de cada negócio junto ao Sicoob',cta:'+ Novo negócio',ctaFn:()=>openNegocioModal()},
   recebimentos:{title:'Recebimentos',sub:'Lançamentos vindos do banco',cta:'+ Lançar recebimento',ctaFn:()=>openRecebimentoModal()},
-  rede:{title:'Rede comercial',sub:'Quem participa da rede',cta:'+ Novo comissionado',ctaFn:()=>openComissionadoModal()},
+  rede:{title:'Rede comercial',sub:'Quem participa da rede',cta:'+ Novo integrante',ctaFn:()=>openComissionadoModal()},
   pagamentos:{title:'Pagamentos',sub:'Repasses à rede comercial',cta:'',ctaFn:null},
   extratos:{title:'Extratos',sub:'Extrato individual por comissionado',cta:'',ctaFn:null},
   config:{title:'Configurações',sub:'Divisão da comissão recebida',cta:'',ctaFn:null},
@@ -1833,7 +1833,7 @@ function fillIndicadoSelect(excludeId){
     (socios.length ? `<optgroup label="Sócios">${socios.map(u=>`<option value="socio:${esc(u.email)}">${esc(u.nome)} (sócio)</option>`).join('')}</optgroup>` : '');
 }
 function openComissionadoModal(id){
-  document.getElementById('mc-titulo').textContent = id ? 'Editar comissionado' : 'Novo comissionado';
+  document.getElementById('mc-titulo').textContent = id ? 'Editar integrante' : 'Novo integrante';
   setVal('mc-id', id||'');
   fillIndicadoSelect(id||null);
   setVal('mc-contrato-arquivo','');
