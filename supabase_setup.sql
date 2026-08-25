@@ -61,10 +61,19 @@ create table if not exists cbs_comissionados (
   status text not null default 'Ativo' check (status in ('Ativo','Inativo')),
   indicado_por bigint references cbs_comissionados(id) on delete set null,
   socio_vinculado text references cbs_usuarios(email) on delete set null, -- marca que esse cadastro representa a participação de um sócio como comissionado
+  contrato_status text not null default 'Pendente' check (contrato_status in ('Pendente','Assinado')),
+  contrato_data date,
+  contrato_path text, -- arquivo do termo assinado, guardado no bucket privado cbs-contratos
   observacoes text,
   created_at timestamptz default now()
 );
 alter table cbs_comissionados add column if not exists socio_vinculado text references cbs_usuarios(email) on delete set null;
+alter table cbs_comissionados add column if not exists contrato_status text not null default 'Pendente';
+do $$ begin
+  alter table cbs_comissionados add constraint cbs_comissionados_contrato_status_check check (contrato_status in ('Pendente','Assinado'));
+exception when duplicate_object then null; end $$;
+alter table cbs_comissionados add column if not exists contrato_data date;
+alter table cbs_comissionados add column if not exists contrato_path text;
 
 alter table cbs_comissionados enable row level security;
 drop policy if exists "cbs_comissionados - só autorizados" on cbs_comissionados;
@@ -86,6 +95,8 @@ create table if not exists cbs_negocios (
   data_inicio date,
   status text not null default 'Ativo' check (status in ('Ativo','Encerrado','Cancelado')),
   situacao_sicoob text not null default 'Indicado' check (situacao_sicoob in ('Indicado','Documentação enviada','Em análise no banco','Conta aberta','Recusado')),
+  aprovado_por text references cbs_usuarios(email) on delete set null, -- NULL = aguardando aprovação de um sócio antes de poder negociar
+  aprovado_em timestamptz,
   observacoes text,
   created_at timestamptz default now()
 );
@@ -93,6 +104,14 @@ alter table cbs_negocios add column if not exists situacao_sicoob text not null 
 do $$ begin
   alter table cbs_negocios add constraint cbs_negocios_situacao_sicoob_check check (situacao_sicoob in ('Indicado','Documentação enviada','Em análise no banco','Conta aberta','Recusado'));
 exception when duplicate_object then null; end $$;
+alter table cbs_negocios add column if not exists aprovado_por text references cbs_usuarios(email) on delete set null;
+alter table cbs_negocios add column if not exists aprovado_em timestamptz;
+-- migração ÚNICA: só passa a exigir aprovação pra negócio NOVO — tudo que já existia antes dessa
+-- coluna existir fica retroativamente aprovado, pra não travar nada em andamento. Usa uma data FIXA
+-- como corte (não "now()") — assim é seguro rodar esse arquivo de novo no futuro sem aprovar sozinho
+-- um negócio genuinamente pendente criado depois dessa data.
+update cbs_negocios set aprovado_por = 'bruno.rivero@gmail.com', aprovado_em = created_at
+  where aprovado_por is null and created_at < '2026-08-20 00:00:00+00';
 
 alter table cbs_negocios enable row level security;
 drop policy if exists "cbs_negocios - só autorizados" on cbs_negocios;
@@ -308,3 +327,15 @@ create policy "cbs_ajustes - acesso" on cbs_ajustes
 
 drop trigger if exists cbs_audit_ajustes on cbs_ajustes;
 create trigger cbs_audit_ajustes after insert or update or delete on cbs_ajustes for each row execute function cbs_audit_trigger();
+
+-- ============================================================
+-- 11. STORAGE — bucket privado pro termo de confidencialidade (NDA) assinado
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('cbs-contratos', 'cbs-contratos', false)
+on conflict (id) do nothing;
+
+drop policy if exists "cbs-contratos - acesso" on storage.objects;
+create policy "cbs-contratos - acesso" on storage.objects
+  for all using (bucket_id = 'cbs-contratos' and cbs_is_authorized())
+  with check (bucket_id = 'cbs-contratos' and cbs_is_authorized());

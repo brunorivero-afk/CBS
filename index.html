@@ -134,6 +134,8 @@ a{color:inherit;}
 .kanban-card .fin{font-size:10.5px;color:var(--text-dim);border-top:1px dashed var(--border2);margin-top:6px;padding-top:6px;line-height:1.55;}
 .kanban-card .fin b{color:var(--accent);}
 .kanban-empty{font-size:11px;color:var(--text-faint);text-align:center;padding:14px 0;}
+.aprovacao-lista{display:flex;flex-wrap:wrap;gap:10px;}
+.aprovacao-lista .kanban-card{flex:0 1 240px;margin-bottom:0;}
 @media (max-width:900px){ .kanban{grid-template-columns:1fr;} }
 
 .panel{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px;}
@@ -340,6 +342,11 @@ tbody tr:hover{background:var(--card);}
 
       <!-- PIPELINE -->
       <div class="view" id="view-pipeline">
+        <div class="panel" id="painel-aprovacao" style="display:none;border-color:var(--warn)">
+          <div class="panel-head"><h3>⏳ Aguardando aprovação</h3></div>
+          <p class="field-hint" style="margin-bottom:14px">Negócio novo não entra no pipeline nem pode ser trabalhado até um sócio aprovar aqui.</p>
+          <div class="aprovacao-lista" id="lista-aprovacao"></div>
+        </div>
         <p class="field-hint" style="margin-bottom:14px">Acompanha a situação de cada negócio junto ao Sicoob, do indicado até a conta aberta. Use ◀ Voltar / Avançar ▶ em cada card pra mudar de etapa. "Recebido" é automático e mensal — o negócio aparece ali só nos meses em que teve Recebimento lançado; fora isso, some do quadro (já formou, o controle contínuo fica em Recebimentos/Dashboard/Extratos).</p>
         <div class="toolbar" style="margin-bottom:14px">
           <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim)"><input type="checkbox" id="rel-interno"> Incluir números internos (comissão/valores)</label>
@@ -532,6 +539,7 @@ tbody tr:hover{background:var(--card);}
 <div class="modal-overlay" id="modal-negocio">
   <div class="modal wide">
     <div class="modal-head"><h3 id="mn-titulo">Novo negócio</h3><button class="modal-close" onclick="closeModal('modal-negocio')">✕</button></div>
+    <div class="field-hint" id="mn-aprovacao-hint" style="margin-bottom:12px;color:var(--warn)">⏳ Esse negócio vai ficar aguardando aprovação de um sócio antes de entrar no pipeline.</div>
     <input type="hidden" id="mn-id">
     <div class="form-row">
       <div class="field"><label>Empresa cliente *</label><input type="text" id="mn-empresa" placeholder="Razão social / nome fantasia"></div>
@@ -579,6 +587,18 @@ tbody tr:hover{background:var(--card);}
       <div class="field-hint">Se essa pessoa entrou na rede através de outro comissionado (ex: vendem juntos, ou foi trazida por alguém), selecione aqui. Ou, se esse cadastro representa a participação de um sócio como comissionado num negócio específico, vincule direto ao sócio na lista. É só pra referência — a divisão de comissão de cada negócio continua sendo configurada manualmente.</div>
     </div>
     <div class="field"><label>Observações</label><textarea id="mc-obs"></textarea></div>
+    <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+      <label>Termo de confidencialidade (NDA)</label>
+      <div class="form-row">
+        <div class="field"><select id="mc-contrato-status"><option value="Pendente">Pendente</option><option value="Assinado">Assinado</option></select></div>
+        <div class="field"><input type="date" id="mc-contrato-data" title="Data da assinatura"></div>
+      </div>
+      <div class="form-row" style="align-items:center">
+        <div class="field"><input type="file" id="mc-contrato-arquivo" accept=".pdf,image/*"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="mc-contrato-ver" style="display:none" onclick="verContrato(comById(Number(val('mc-id')))?.contratoPath)">📎 Ver termo assinado</button>
+      </div>
+      <div class="field-hint">Envie o PDF do termo assinado pelo comissionado. Fica guardado num bucket privado — só quem tem acesso ao sistema consegue abrir.</div>
+    </div>
     <div class="modal-foot">
       <button class="btn btn-ghost" onclick="closeModal('modal-comissionado')">Cancelar</button>
       <button class="btn btn-primary" onclick="saveComissionado()">Salvar</button>
@@ -749,7 +769,8 @@ async function refreshStore(){
 
   STORE.comissionados = (comissionadosR.data||[]).map(c=>({
     id:c.id, nome:c.nome, telefone:c.telefone, email:c.email, pix:c.pix, status:c.status,
-    indicadoPor:c.indicado_por, socioVinculado:c.socio_vinculado, observacoes:c.observacoes, dataCadastro:c.created_at
+    indicadoPor:c.indicado_por, socioVinculado:c.socio_vinculado, observacoes:c.observacoes, dataCadastro:c.created_at,
+    contratoStatus:c.contrato_status||'Pendente', contratoData:c.contrato_data, contratoPath:c.contrato_path
   }));
 
   const ncByNeg = {};
@@ -758,7 +779,7 @@ async function refreshStore(){
   });
   STORE.negocios = (negociosR.data||[]).map(n=>({
     id:n.id, empresaCliente:n.empresa_cliente, cnpj:n.cnpj, data:n.data_inicio, status:n.status,
-    situacaoSicoob:n.situacao_sicoob||'Indicado',
+    situacaoSicoob:n.situacao_sicoob||'Indicado', aprovadoPor:n.aprovado_por, aprovadoEm:n.aprovado_em,
     observacoes:n.observacoes, dataCadastro:n.created_at, comissionados: ncByNeg[n.id]||[]
   }));
 
@@ -1328,7 +1349,7 @@ function renderNegocios(){
   const tb = document.querySelector('#tbl-negocios tbody');
   tb.innerHTML = list.length ? list.map(n=>`
     <tr>
-      <td class="name-cell"><b>${esc(n.empresaCliente)}</b>${n.cnpj?`<small>${esc(n.cnpj)}</small>`:''}</td>
+      <td class="name-cell"><b>${esc(n.empresaCliente)}</b>${n.cnpj?`<small>${esc(n.cnpj)}</small>`:''}${!n.aprovadoPor?`<small style="color:var(--warn)">⏳ Aguardando aprovação</small>`:''}</td>
       <td>${fmtData(n.data)}</td>
       <td>${statusBadge(n.status)}</td>
       <td>${(n.comissionados||[]).map(c=>`${esc(comById(c.comissionadoId)?.nome||'?')} (${c.percentual}%)${c.principal?' ★':''}`).join(', ')||'—'}</td>
@@ -1386,7 +1407,8 @@ const PIPELINE_COLUNAS = [
 function agruparPipeline(){
   const grupos = {}; PIPELINE_COLUNAS.forEach(c=>grupos[c.key]=[]);
   const mesAtual = todayISO().slice(0,7);
-  STORE.negocios.filter(n=>n.status!=='Cancelado').forEach(n=>{
+  // negócio sem aprovação de sócio não entra no pipeline nem pode ser trabalhado — fica só na fila de aprovação
+  STORE.negocios.filter(n=>n.status!=='Cancelado' && n.aprovadoPor).forEach(n=>{
     const finMes = financeiroNegocioMes(n.id, mesAtual);
     if(finMes.qtd>0){
       grupos['Recebido'].push({n, fin:finMes});
@@ -1399,9 +1421,28 @@ function agruparPipeline(){
   });
   return grupos;
 }
+function renderPendentesAprovacao(){
+  const painel = document.getElementById('painel-aprovacao');
+  const lista = document.getElementById('lista-aprovacao');
+  if(!painel || !lista) return;
+  const pendentes = STORE.negocios.filter(n=>n.status!=='Cancelado' && !n.aprovadoPor);
+  painel.style.display = pendentes.length ? 'block' : 'none';
+  if(!pendentes.length) return;
+  const ehSocio = currentUser && currentUser.posicao==='Sócio';
+  lista.innerHTML = pendentes.map(n=>`
+    <div class="kanban-card">
+      <div class="empresa">${esc(n.empresaCliente)}</div>
+      <div class="originador">Originador(es): ${origemTexto(n)}</div>
+      ${ehSocio
+        ? `<button class="btn btn-primary btn-sm" style="width:100%" onclick="aprovarNegocio(${n.id})">✓ Aprovar</button>`
+        : `<div class="fin">Aguardando um sócio aprovar.</div>`}
+    </div>
+  `).join('');
+}
 function renderPipeline(){
   const board = document.getElementById('pipeline-board');
   if(!board) return;
+  renderPendentesAprovacao();
   const grupos = agruparPipeline();
   board.innerHTML = PIPELINE_COLUNAS.map(c=>`
     <div class="kanban-col">
@@ -1409,6 +1450,13 @@ function renderPipeline(){
       ${grupos[c.key].length ? grupos[c.key].map(({n,fin})=>pipelineCardHtml(n, c.key==='Recebido'?fin:null, c.key)).join('') : `<div class="kanban-empty">Vazio</div>`}
     </div>
   `).join('');
+}
+async function aprovarNegocio(negocioId){
+  if(!currentUser || currentUser.posicao!=='Sócio'){ toast('Só um sócio pode aprovar.','err'); return; }
+  const { error } = await sbClient.from('cbs_negocios').update({ aprovado_por: currentUser.email, aprovado_em: new Date().toISOString() }).eq('id', negocioId);
+  if(error){ toast('Erro: '+error.message,'err'); return; }
+  toast('Negócio aprovado — já entra no pipeline.');
+  await refreshStore(); renderAll();
 }
 async function mudarSituacaoSicoob(negocioId, novaSituacao){
   const { error } = await sbClient.from('cbs_negocios').update({ situacao_sicoob: novaSituacao }).eq('id', negocioId);
@@ -1510,6 +1558,7 @@ function updateSplitTotal(){
 
 function openNegocioModal(id){
   document.getElementById('mn-titulo').textContent = id ? 'Editar negócio' : 'Novo negócio';
+  document.getElementById('mn-aprovacao-hint').style.display = id ? 'none' : 'block';
   setVal('mn-id', id||'');
   if(id){
     const n = negById(id);
@@ -1646,7 +1695,7 @@ function renderRede(){
     const socioVinc = c.socioVinculado ? STORE.usuarios.find(u=>u.email===c.socioVinculado) : null;
     const totalAjustes = ajustesDoComissionado(c.id).reduce((a,j)=>a+Number(j.valor||0),0);
     return `<tr>
-      <td class="name-cell"><b>${esc(c.nome)}</b>${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}</td>
+      <td class="name-cell"><b>${esc(c.nome)}</b>${c.contratoStatus!=='Assinado'?`<small style="color:var(--warn)">⚠ NDA pendente</small>`:''}${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}</td>
       <td>${esc(c.telefone||c.email||'—')}</td>
       <td>${statusBadge(c.status)}</td>
       <td>${negs}</td>
@@ -1670,14 +1719,19 @@ function openComissionadoModal(id){
   document.getElementById('mc-titulo').textContent = id ? 'Editar comissionado' : 'Novo comissionado';
   setVal('mc-id', id||'');
   fillIndicadoSelect(id||null);
+  setVal('mc-contrato-arquivo','');
   if(id){
     const c = comById(id);
     setVal('mc-nome',c.nome); setVal('mc-tel',c.telefone); setVal('mc-email',c.email);
     setVal('mc-pix',c.pix); setVal('mc-status',c.status); setVal('mc-obs',c.observacoes);
     setVal('mc-indicado', c.indicadoPor ? c.indicadoPor : (c.socioVinculado ? 'socio:'+c.socioVinculado : ''));
+    setVal('mc-contrato-status', c.contratoStatus||'Pendente'); setVal('mc-contrato-data', c.contratoData||'');
+    document.getElementById('mc-contrato-ver').style.display = c.contratoPath ? 'inline-block' : 'none';
   } else {
     ['mc-nome','mc-tel','mc-email','mc-pix','mc-obs'].forEach(id=>setVal(id,''));
     setVal('mc-status','Ativo'); setVal('mc-indicado','');
+    setVal('mc-contrato-status','Pendente'); setVal('mc-contrato-data','');
+    document.getElementById('mc-contrato-ver').style.display = 'none';
   }
   document.getElementById('modal-comissionado').classList.add('open');
 }
@@ -1696,13 +1750,28 @@ async function saveComissionado(){
     }
   }
   const payload = { nome, telefone: val('mc-tel').trim()||null, email: val('mc-email').trim()||null, pix: val('mc-pix').trim()||null,
-    status: val('mc-status'), observacoes: val('mc-obs').trim()||null, indicado_por: indicadoPor, socio_vinculado: vinculoSocio };
+    status: val('mc-status'), observacoes: val('mc-obs').trim()||null, indicado_por: indicadoPor, socio_vinculado: vinculoSocio,
+    contrato_status: val('mc-contrato-status'), contrato_data: val('mc-contrato-data')||null };
+  const arquivo = document.getElementById('mc-contrato-arquivo').files[0];
+  if(arquivo){
+    const ext = arquivo.name.split('.').pop();
+    const path = `${id||'novo'}-${Date.now()}.${ext}`;
+    const { error: upErr } = await sbClient.storage.from('cbs-contratos').upload(path, arquivo);
+    if(upErr){ toast('Erro ao subir termo: '+upErr.message,'err'); return; }
+    payload.contrato_path = path;
+  }
   let error;
   if(id){ ({ error } = await sbClient.from('cbs_comissionados').update(payload).eq('id', Number(id))); }
   else{ ({ error } = await sbClient.from('cbs_comissionados').insert(payload)); }
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
   toast(id ? 'Comissionado atualizado.' : 'Comissionado cadastrado.');
   await refreshStore(); closeModal('modal-comissionado'); renderAll();
+}
+async function verContrato(path){
+  if(!path){ toast('Nenhum termo enviado ainda.','err'); return; }
+  const { data, error } = await sbClient.storage.from('cbs-contratos').createSignedUrl(path, 60);
+  if(error){ toast('Erro ao abrir termo: '+error.message,'err'); return; }
+  window.open(data.signedUrl, '_blank');
 }
 async function deleteComissionado(id){
   const emUso = STORE.negocios.some(n=>(n.comissionados||[]).some(c=>c.comissionadoId===id));
