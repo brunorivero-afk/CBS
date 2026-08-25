@@ -491,6 +491,16 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>Modelo oficial do NDA</h3></div>
+          <p class="field-hint" style="margin-bottom:14px" id="cfg-nda-status"></p>
+          <p class="field-hint" style="margin-bottom:14px">Suba aqui a versão final revisada pelo advogado (já assinada pela Enterprise Capital) — vira o arquivo oficial pra baixar e mandar direto pro comissionado assinar. Enquanto não subir nenhum, o botão "Gerar termo (PDF)" no cadastro do comissionado continua gerando o rascunho automático a partir do texto padrão.</p>
+          <div class="form-row" style="align-items:center">
+            <div class="field"><input type="file" id="cfg-nda-arquivo" accept=".pdf"></div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="salvarModeloNda()">Salvar modelo</button>
+          </div>
+        </div>
+
+        <div class="panel" style="max-width:520px">
           <div class="panel-head">
             <h3>Usuários com acesso</h3>
             <div class="toolbar">
@@ -594,9 +604,13 @@ tbody tr:hover{background:var(--card);}
     <div class="field"><label>Observações</label><textarea id="mc-obs"></textarea></div>
     <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
       <label>Termo de confidencialidade (NDA)</label>
+      <div class="form-row" style="align-items:center;display:none" id="mc-nda-oficial-row">
+        <button type="button" class="btn btn-primary btn-sm" onclick="verModeloNda()">📥 Baixar modelo oficial (revisado pelo advogado)</button>
+        <div class="field-hint" style="margin:0">Esse é o modelo cadastrado em Configurações — já assinado pela Enterprise Capital, pronto pra mandar direto pro comissionado assinar.</div>
+      </div>
       <div class="form-row" style="align-items:center">
-        <button type="button" class="btn btn-ghost btn-sm" onclick="gerarTermoNDA()">📄 Gerar termo (PDF) pra enviar</button>
-        <div class="field-hint" style="margin:0">Gera o termo já preenchido com nome/CPF, pra você baixar/imprimir e mandar pra assinatura por fora.</div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="gerarTermoNDA()">📄 Gerar rascunho automático (PDF)</button>
+        <div class="field-hint" style="margin:0">Sem modelo oficial cadastrado ainda? Isso gera um rascunho a partir do texto padrão, já preenchido com nome/CPF.</div>
       </div>
       <div class="form-row">
         <div class="field"><select id="mc-contrato-status"><option value="Pendente">Pendente</option><option value="Assinado">Assinado</option></select></div>
@@ -755,7 +769,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ================= DADOS (espelho local do Supabase, populado por refreshStore()) ================= */
-let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, mesFechadoAte:null } };
+let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, mesFechadoAte:null, ndaTemplatePath:null } };
 let currentUser = null; // { email, nome, posicao }
 
 async function refreshStore(){
@@ -801,8 +815,8 @@ async function refreshStore(){
     });
   });
   STORE.config = configR.data
-    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, mesFechadoAte: configR.data.mes_fechado_ate||null }
-    : { impostoPct:0, agentePct:50, corplinkPct:20, mesFechadoAte:null };
+    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, mesFechadoAte: configR.data.mes_fechado_ate||null, ndaTemplatePath: configR.data.nda_template_path||null }
+    : { impostoPct:0, agentePct:50, corplinkPct:20, mesFechadoAte:null, ndaTemplatePath:null };
 
   STORE.recebimentos = (recebimentosR.data||[]).map(r=>({
     id:r.id, negocioId:r.negocio_id, data:r.data, referencia:r.referencia,
@@ -987,6 +1001,33 @@ function renderConfig(){
   renderRetiradas();
   renderMesFechadoStatus();
   renderImpostoPorMes();
+  renderNdaStatus();
+}
+function renderNdaStatus(){
+  const el = document.getElementById('cfg-nda-status');
+  if(!el) return;
+  el.innerHTML = STORE.config.ndaTemplatePath
+    ? `✅ Modelo oficial cadastrado. <a href="#" onclick="verModeloNda();return false" style="color:var(--accent)">Ver/baixar</a>`
+    : `⚠ Nenhum modelo oficial cadastrado ainda — usando o rascunho automático.`;
+}
+async function salvarModeloNda(){
+  const arquivo = document.getElementById('cfg-nda-arquivo').files[0];
+  if(!arquivo){ toast('Selecione o PDF do modelo.','err'); return; }
+  const ext = arquivo.name.split('.').pop();
+  const path = `_modelo-oficial-nda.${ext}`;
+  const { error: upErr } = await sbClient.storage.from('cbs-contratos').upload(path, arquivo, { upsert: true });
+  if(upErr){ toast('Erro ao subir modelo: '+upErr.message,'err'); return; }
+  const { error } = await sbClient.from('cbs_config').update({ nda_template_path: path }).eq('id',1);
+  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
+  toast('Modelo oficial do NDA salvo.');
+  setVal('cfg-nda-arquivo','');
+  await refreshStore(); renderAll();
+}
+async function verModeloNda(){
+  if(!STORE.config.ndaTemplatePath){ toast('Nenhum modelo cadastrado ainda.','err'); return; }
+  const { data, error } = await sbClient.storage.from('cbs-contratos').createSignedUrl(STORE.config.ndaTemplatePath, 60);
+  if(error){ toast('Erro ao abrir modelo: '+error.message,'err'); return; }
+  window.open(data.signedUrl, '_blank');
 }
 function renderMesFechadoStatus(){
   const mfa = STORE.config.mesFechadoAte;
@@ -1764,6 +1805,7 @@ function openComissionadoModal(id){
   setVal('mc-id', id||'');
   fillIndicadoSelect(id||null);
   setVal('mc-contrato-arquivo','');
+  document.getElementById('mc-nda-oficial-row').style.display = STORE.config.ndaTemplatePath ? 'grid' : 'none';
   if(id){
     const c = comById(id);
     setVal('mc-nome',c.nome); setVal('mc-tel',c.telefone); setVal('mc-email',c.email);

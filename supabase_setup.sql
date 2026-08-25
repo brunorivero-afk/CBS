@@ -209,11 +209,13 @@ create table if not exists cbs_config (
   imposto_pct numeric(6,2) not null default 0,
   agente_pct numeric(6,2) not null default 50,
   corplink_pct numeric(6,2) not null default 20,
-  mes_fechado_ate text -- "AAAA-MM": recebimentos com data <= esse mês ficam travados pra edição/exclusão
+  mes_fechado_ate text, -- "AAAA-MM": recebimentos com data <= esse mês ficam travados pra edição/exclusão
+  nda_template_path text -- modelo oficial do NDA (revisado pelo advogado, já assinado pela empresa), no bucket cbs-contratos
 );
 insert into cbs_config (id) values (1) on conflict (id) do nothing;
 alter table cbs_config add column if not exists corplink_pct numeric(6,2) not null default 20;
 alter table cbs_config add column if not exists mes_fechado_ate text;
+alter table cbs_config add column if not exists nda_template_path text;
 
 alter table cbs_config enable row level security;
 drop policy if exists "cbs_config - só autorizados" on cbs_config;
