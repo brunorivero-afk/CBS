@@ -491,9 +491,9 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>Modelo oficial do NDA</h3></div>
+          <div class="panel-head"><h3>Modelo oficial do Contrato de Parceria</h3></div>
           <p class="field-hint" style="margin-bottom:14px" id="cfg-nda-status"></p>
-          <p class="field-hint" style="margin-bottom:14px">Suba aqui a versão final revisada pelo advogado (já assinada pela Enterprise Capital) — vira o arquivo oficial pra baixar e mandar direto pro comissionado assinar. Enquanto não subir nenhum, o botão "Gerar termo (PDF)" no cadastro do comissionado continua gerando o rascunho automático a partir do texto padrão.</p>
+          <p class="field-hint" style="margin-bottom:14px">Suba aqui a versão final revisada pelo advogado (já assinada pela Enterprise Capital) — vira o arquivo oficial pra baixar e mandar direto pro comissionado assinar. Enquanto não subir nenhum, o botão "Gerar contrato (PDF)" no cadastro do comissionado continua gerando o rascunho automático a partir do texto padrão.</p>
           <div class="form-row" style="align-items:center">
             <div class="field"><input type="file" id="cfg-nda-arquivo" accept=".pdf"></div>
             <button type="button" class="btn btn-primary btn-sm" onclick="salvarModeloNda()">Salvar modelo</button>
@@ -605,14 +605,14 @@ tbody tr:hover{background:var(--card);}
     <div class="field"><label>Observações</label><textarea id="mc-obs"></textarea></div>
     <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
       <label>Onboarding</label>
-      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
-        <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="mc-onb-script"> Recebeu e leu o script de abordagem padronizado</label>
-        <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="mc-onb-duplicidade"> Foi avisado da regra: cliente já correntista no mesmo banco (em qualquer sede) fica de fora</label>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <label class="chk" style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.4"><input type="checkbox" id="mc-onb-script" style="margin-top:3px;flex:0 0 auto"><span>Recebeu e leu o script de abordagem padronizado</span></label>
+        <label class="chk" style="display:flex;align-items:flex-start;gap:8px;font-size:13px;line-height:1.4"><input type="checkbox" id="mc-onb-duplicidade" style="margin-top:3px;flex:0 0 auto"><span>Foi avisado da regra: cliente já correntista no mesmo banco (em qualquer sede) fica de fora</span></label>
       </div>
-      <div class="field-hint">O NDA (abaixo) é o 3º item do onboarding — some junto na barra de status assim que estiver "Assinado".</div>
+      <div class="field-hint">O contrato de parceria (abaixo) é o 3º item do onboarding — some junto na barra de status assim que estiver "Assinado".</div>
     </div>
     <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
-      <label>Termo de confidencialidade (NDA)</label>
+      <label>Contrato de parceria (com cláusula de confidencialidade)</label>
       <div class="form-row" style="align-items:center;display:none" id="mc-nda-oficial-row">
         <button type="button" class="btn btn-primary btn-sm" onclick="verModeloNda()">📥 Baixar modelo oficial (revisado pelo advogado)</button>
         <div class="field-hint" style="margin:0">Esse é o modelo cadastrado em Configurações — já assinado pela Enterprise Capital, pronto pra mandar direto pro comissionado assinar.</div>
@@ -627,7 +627,7 @@ tbody tr:hover{background:var(--card);}
       </div>
       <div class="form-row" style="align-items:center">
         <div class="field"><input type="file" id="mc-contrato-arquivo" accept=".pdf,image/*"></div>
-        <button type="button" class="btn btn-ghost btn-sm" id="mc-contrato-ver" style="display:none" onclick="verContrato(comById(Number(val('mc-id')))?.contratoPath)">📎 Ver termo assinado</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="mc-contrato-ver" style="display:none" onclick="verContrato(comById(Number(val('mc-id')))?.contratoPath)">📎 Ver contrato assinado</button>
       </div>
       <div class="field-hint">Depois que a pessoa assinar (à mão + foto/scan, ou app de assinatura por fora), envie o PDF assinado aqui. Fica guardado num bucket privado — só quem tem acesso ao sistema consegue abrir.</div>
     </div>
@@ -868,13 +868,13 @@ function toast(msg,type){
   clearTimeout(window._toastTO); window._toastTO=setTimeout(()=>{t.className='';},3200);
 }
 function comById(id){ return STORE.comissionados.find(c=>c.id===id); }
-// onboarding completo = script + regra de duplicidade + NDA assinado (os 3 itens combinados)
+// onboarding completo = script + regra de duplicidade + contrato de parceria assinado (os 3 itens combinados)
 function onboardingCompleto(c){ return !!(c && c.onboardingScript && c.onboardingDuplicidade && c.contratoStatus==='Assinado'); }
 function onboardingPendentesTexto(c){
   const faltando = [];
   if(!c.onboardingScript) faltando.push('script');
   if(!c.onboardingDuplicidade) faltando.push('regra de duplicidade');
-  if(c.contratoStatus!=='Assinado') faltando.push('NDA');
+  if(c.contratoStatus!=='Assinado') faltando.push('contrato');
   return faltando.join(', ');
 }
 function negById(id){ return STORE.negocios.find(n=>n.id===id); }
@@ -1038,7 +1038,7 @@ async function salvarModeloNda(){
   if(upErr){ toast('Erro ao subir modelo: '+upErr.message,'err'); return; }
   const { error } = await sbClient.from('cbs_config').update({ nda_template_path: path }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
-  toast('Modelo oficial do NDA salvo.');
+  toast('Modelo oficial do contrato de parceria salvo.');
   setVal('cfg-nda-arquivo','');
   await refreshStore(); renderAll();
 }
@@ -1599,29 +1599,32 @@ function gerarRelatorioPipeline(){
   document.getElementById('pn-nda').style.display='none';
   window.print();
 }
-// gera o Termo de Confidencialidade (NDA) já preenchido com nome/CPF do modal de Comissionado aberto
-// no momento — pra baixar/imprimir e mandar pra assinatura por fora. Não depende de já ter salvo.
+// gera o Contrato de Parceria Comercial (com cláusula de confidencialidade) já preenchido com nome/CPF
+// do modal de Comissionado aberto no momento — pra baixar/imprimir e mandar pra assinatura por fora.
+// Não depende de já ter salvo.
 function gerarTermoNDA(){
   const nome = val('mc-nome').trim();
-  if(!nome){ toast('Informe ao menos o nome antes de gerar o termo.','err'); return; }
+  if(!nome){ toast('Informe ao menos o nome antes de gerar o contrato.','err'); return; }
   const cpf = val('mc-cpf').trim();
   const hoje = fmtData(todayISO());
   const html = `
-    <h2 style="text-align:center;margin-bottom:4px">TERMO DE CONFIDENCIALIDADE E COMPROMISSO ÉTICO</h2>
+    <h2 style="text-align:center;margin-bottom:4px">CONTRATO DE PARCERIA COMERCIAL</h2>
     <div style="text-align:center;color:#777;font-size:11.5px;margin-bottom:22px">(gerado em ${hoje})</div>
-    <p style="font-size:13px;line-height:1.6">Pelo presente termo, de um lado <b>Enterprise Capital</b>, doravante denominada <b>CONTRATANTE</b>, e de outro <b>${esc(nome)}</b>${cpf?`, portador(a) do CPF nº <b>${esc(cpf)}</b>`:''}, doravante denominado(a) <b>PARCEIRO COMERCIAL</b>, têm entre si justo e acordado o seguinte:</p>
-    <h3 style="font-size:13.5px;margin:16px 0 4px">1. Objeto</h3>
-    <p style="font-size:13px;line-height:1.6">O PARCEIRO COMERCIAL atuará na originação e indicação de clientes para produtos e serviços bancários, em parceria com a CONTRATANTE, tendo acesso, no exercício dessa atividade, a informações confidenciais sobre a estrutura comercial, valores de comissionamento, relacionamento institucional com a instituição financeira parceira e dados de clientes.</p>
-    <h3 style="font-size:13.5px;margin:16px 0 4px">2. Informações confidenciais</h3>
-    <p style="font-size:13px;line-height:1.6">Consideram-se confidenciais, sem limitação: percentuais, valores e estrutura de comissionamento praticados pela CONTRATANTE; qualquer informação sobre o relacionamento institucional da CONTRATANTE com funcionários, gerentes, diretores ou representantes da instituição financeira parceira; dados pessoais e financeiros de clientes obtidos em razão da atividade de indicação; estratégias comerciais, scripts de abordagem, listas de contatos e demais materiais internos fornecidos pela CONTRATANTE.</p>
-    <h3 style="font-size:13.5px;margin:16px 0 4px">3. Obrigações do Parceiro Comercial</h3>
-    <p style="font-size:13px;line-height:1.6">O PARCEIRO COMERCIAL compromete-se a: (a) não divulgar, comentar, discutir ou repassar a terceiros — incluindo outros parceiros comerciais, clientes, familiares ou em grupos de mensagens — qualquer informação confidencial, especialmente valores/percentuais de comissão e detalhes do relacionamento com a instituição financeira; (b) utilizar, na abordagem a clientes, exclusivamente o discurso e os materiais orientados pela CONTRATANTE, abstendo-se de promessas ou insinuações não autorizadas sobre tratamento preferencial ou vínculo com pessoas específicas dentro da instituição financeira; (c) verificar, antes de qualquer indicação, se o cliente já possui relacionamento ativo com a mesma instituição financeira em qualquer outra agência/unidade, abstendo-se de originar propostas nesses casos; (d) não se representar perante o cliente ou terceiros como funcionário ou porta-voz da instituição financeira; (e) comunicar imediatamente à CONTRATANTE qualquer situação que possa configurar quebra deste termo ou risco à parceria comercial.</p>
-    <h3 style="font-size:13.5px;margin:16px 0 4px">4. Vigência</h3>
-    <p style="font-size:13px;line-height:1.6">Este termo permanece em vigor durante todo o período da relação comercial entre as partes e por 2 (dois) anos após seu encerramento, independentemente do motivo da cessação.</p>
-    <h3 style="font-size:13.5px;margin:16px 0 4px">5. Penalidades</h3>
-    <p style="font-size:13px;line-height:1.6">O descumprimento de qualquer obrigação prevista neste termo autoriza a CONTRATANTE a suspender ou encerrar imediatamente a parceria comercial, sem prejuízo de comissões já apuradas até a data do desligamento, e a pleitear indenização por perdas e danos decorrentes de prejuízo à relação da CONTRATANTE com a instituição financeira parceira.</p>
-    <h3 style="font-size:13.5px;margin:16px 0 4px">6. Disposições gerais</h3>
-    <p style="font-size:13px;line-height:1.6">Este termo não cria vínculo empregatício entre as partes, mantendo-se a natureza autônoma e comercial da relação.</p>
+    <p style="font-size:13px;line-height:1.6">Pelo presente instrumento particular, de um lado <b>Enterprise Capital</b>, doravante denominada <b>CONTRATANTE</b>, e de outro <b>${esc(nome)}</b>${cpf?`, portador(a) do CPF nº <b>${esc(cpf)}</b>`:''}, doravante denominado(a) <b>PARCEIRO COMERCIAL</b>, têm entre si justo e acordado o seguinte:</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">1. Objeto da parceria</h3>
+    <p style="font-size:13px;line-height:1.6">O PARCEIRO COMERCIAL atuará na originação e indicação de clientes para produtos e serviços bancários, em parceria com a CONTRATANTE, sem qualquer vínculo empregatício entre as partes.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">2. Remuneração</h3>
+    <p style="font-size:13px;line-height:1.6">Pela originação de negócios efetivamente concretizados, o PARCEIRO COMERCIAL fará jus a uma comissão, cujo percentual e forma de apuração são informados individualmente pela CONTRATANTE e podem ser ajustados a critério desta a cada novo negócio.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">3. Confidencialidade</h3>
+    <p style="font-size:13px;line-height:1.6">No exercício da parceria, o PARCEIRO COMERCIAL terá acesso a informações confidenciais sobre a estrutura comercial, valores de comissionamento, relacionamento institucional com a instituição financeira parceira e dados de clientes. Consideram-se confidenciais, sem limitação: percentuais, valores e estrutura de comissionamento praticados pela CONTRATANTE; qualquer informação sobre o relacionamento institucional da CONTRATANTE com funcionários, gerentes, diretores ou representantes da instituição financeira parceira; dados pessoais e financeiros de clientes obtidos em razão da atividade de indicação; estratégias comerciais, scripts de abordagem, listas de contatos e demais materiais internos fornecidos pela CONTRATANTE.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">4. Obrigações do Parceiro Comercial</h3>
+    <p style="font-size:13px;line-height:1.6">O PARCEIRO COMERCIAL compromete-se a: (a) não divulgar, comentar, discutir ou repassar a terceiros — incluindo outros parceiros comerciais, clientes, familiares ou em grupos de mensagens — qualquer informação confidencial, especialmente valores/percentuais de comissão e detalhes do relacionamento com a instituição financeira; (b) utilizar, na abordagem a clientes, exclusivamente o discurso e os materiais orientados pela CONTRATANTE, abstendo-se de promessas ou insinuações não autorizadas sobre tratamento preferencial ou vínculo com pessoas específicas dentro da instituição financeira; (c) verificar, antes de qualquer indicação, se o cliente já possui relacionamento ativo com a mesma instituição financeira em qualquer outra agência/unidade, abstendo-se de originar propostas nesses casos; (d) não se representar perante o cliente ou terceiros como funcionário ou porta-voz da instituição financeira; (e) comunicar imediatamente à CONTRATANTE qualquer situação que possa configurar quebra deste contrato ou risco à parceria comercial.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">5. Vigência</h3>
+    <p style="font-size:13px;line-height:1.6">Este contrato permanece em vigor durante todo o período da relação comercial entre as partes; a cláusula de confidencialidade (item 3) permanece em vigor por 2 (dois) anos após o encerramento, independentemente do motivo da cessação.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">6. Penalidades</h3>
+    <p style="font-size:13px;line-height:1.6">O descumprimento de qualquer obrigação prevista neste contrato autoriza a CONTRATANTE a suspender ou encerrar imediatamente a parceria comercial, sem prejuízo de comissões já apuradas até a data do desligamento, e a pleitear indenização por perdas e danos decorrentes de prejuízo à relação da CONTRATANTE com a instituição financeira parceira.</p>
+    <h3 style="font-size:13.5px;margin:16px 0 4px">7. Disposições gerais</h3>
+    <p style="font-size:13px;line-height:1.6">Este contrato não cria vínculo empregatício entre as partes, mantendo-se a natureza autônoma e comercial da relação.</p>
     <p style="font-size:13px;margin-top:26px">${hoje}</p>
     <div style="margin-top:50px;font-size:13px">_______________________________________<br><b>Enterprise Capital</b> — Contratante</div>
     <div style="margin-top:40px;font-size:13px">_______________________________________<br><b>${esc(nome)}</b>${cpf?` — CPF nº ${esc(cpf)}`:''} — Parceiro Comercial</div>
