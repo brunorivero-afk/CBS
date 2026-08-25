@@ -552,8 +552,9 @@ tbody tr:hover{background:var(--card);}
     <div class="modal-head"><h3 id="mn-titulo">Novo negócio</h3><button class="modal-close" onclick="closeModal('modal-negocio')">✕</button></div>
     <div class="field-hint" id="mn-aprovacao-hint" style="margin-bottom:12px;color:var(--warn)">⏳ Esse negócio vai ficar aguardando aprovação de um sócio antes de entrar no pipeline.</div>
     <input type="hidden" id="mn-id">
-    <div class="form-row">
-      <div class="field"><label>Empresa cliente *</label><input type="text" id="mn-empresa" placeholder="Razão social / nome fantasia"></div>
+    <div class="form-row c3">
+      <div class="field"><label>Empresa cliente *</label><input type="text" id="mn-empresa" placeholder="Nome fantasia"></div>
+      <div class="field"><label>Razão social</label><input type="text" id="mn-razao-social" placeholder="Nome registrado no CNPJ"></div>
       <div class="field"><label>CNPJ</label><input type="text" id="mn-cnpj" placeholder="00.000.000/0000-00"></div>
     </div>
     <div class="form-row c3">
@@ -604,8 +605,10 @@ tbody tr:hover{background:var(--card);}
     <div class="field"><label>Observações</label><textarea id="mc-obs"></textarea></div>
     <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
       <label>Onboarding</label>
-      <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:6px"><input type="checkbox" id="mc-onb-script"> Recebeu e leu o script de abordagem padronizado</label>
-      <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="mc-onb-duplicidade"> Foi avisado da regra: cliente já correntista no mesmo banco (em qualquer sede) fica de fora</label>
+      <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+        <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="mc-onb-script"> Recebeu e leu o script de abordagem padronizado</label>
+        <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="mc-onb-duplicidade"> Foi avisado da regra: cliente já correntista no mesmo banco (em qualquer sede) fica de fora</label>
+      </div>
       <div class="field-hint">O NDA (abaixo) é o 3º item do onboarding — some junto na barra de status assim que estiver "Assinado".</div>
     </div>
     <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
@@ -809,7 +812,7 @@ async function refreshStore(){
     (ncByNeg[nc.negocio_id] = ncByNeg[nc.negocio_id]||[]).push({ comissionadoId:nc.comissionado_id, percentual:Number(nc.percentual), principal:!!nc.principal });
   });
   STORE.negocios = (negociosR.data||[]).map(n=>({
-    id:n.id, empresaCliente:n.empresa_cliente, cnpj:n.cnpj, data:n.data_inicio, status:n.status,
+    id:n.id, empresaCliente:n.empresa_cliente, razaoSocial:n.razao_social, cnpj:n.cnpj, data:n.data_inicio, status:n.status,
     situacaoSicoob:n.situacao_sicoob||'Indicado', aprovadoPor:n.aprovado_por, aprovadoEm:n.aprovado_em,
     observacoes:n.observacoes, dataCadastro:n.created_at, comissionados: ncByNeg[n.id]||[]
   }));
@@ -1667,11 +1670,11 @@ function openNegocioModal(id){
   setVal('mn-id', id||'');
   if(id){
     const n = negById(id);
-    setVal('mn-empresa', n.empresaCliente); setVal('mn-cnpj', n.cnpj);
+    setVal('mn-empresa', n.empresaCliente); setVal('mn-razao-social', n.razaoSocial); setVal('mn-cnpj', n.cnpj);
     setVal('mn-data', n.data); setVal('mn-status', n.status); setVal('mn-obs', n.observacoes);
     mnSplitRows = (n.comissionados||[]).map(c=>({...c}));
   } else {
-    ['mn-empresa','mn-cnpj','mn-obs'].forEach(id=>setVal(id,''));
+    ['mn-empresa','mn-razao-social','mn-cnpj','mn-obs'].forEach(id=>setVal(id,''));
     setVal('mn-data', todayISO()); setVal('mn-status','Ativo');
     mnSplitRows = [];
   }
@@ -1692,7 +1695,7 @@ async function saveNegocio(){
   if(somaPct > 100){ toast(`A soma dos percentuais da rede (${somaPct}%) não pode passar de 100%. Ajuste antes de salvar.`,'err'); return; }
   const id = val('mn-id');
   const payload = {
-    empresa_cliente: empresa, cnpj: val('mn-cnpj').trim()||null,
+    empresa_cliente: empresa, razao_social: val('mn-razao-social').trim()||null, cnpj: val('mn-cnpj').trim()||null,
     data_inicio: val('mn-data')||null, status: val('mn-status'), observacoes: val('mn-obs').trim()||null
   };
   const btn = document.getElementById('btn-save-negocio'); btn.disabled = true;

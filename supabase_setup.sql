@@ -99,6 +99,7 @@ create policy "cbs_comissionados - acesso" on cbs_comissionados
 create table if not exists cbs_negocios (
   id bigserial primary key,
   empresa_cliente text not null,
+  razao_social text, -- nome registrado no CNPJ, distinto do nome fantasia — pra informações formais tipo envio pra CorpLink
   cnpj text,
   data_inicio date,
   status text not null default 'Ativo' check (status in ('Ativo','Encerrado','Cancelado')),
@@ -108,6 +109,7 @@ create table if not exists cbs_negocios (
   observacoes text,
   created_at timestamptz default now()
 );
+alter table cbs_negocios add column if not exists razao_social text;
 alter table cbs_negocios add column if not exists situacao_sicoob text not null default 'Indicado';
 do $$ begin
   alter table cbs_negocios add constraint cbs_negocios_situacao_sicoob_check check (situacao_sicoob in ('Indicado','Documentação enviada','Em análise no banco','Conta aberta','Recusado'));

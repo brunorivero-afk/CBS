@@ -1,6 +1,6 @@
 -- ============================================================
 -- Rodar isso no SQL Editor do Supabase (idempotente).
--- Checklist de onboarding por comissionado.
+-- Razão social no cadastro de Negócio (distinto do nome fantasia), pra ter os dados
+-- prontos quando precisar enviar cliente pra CorpLink.
 -- ============================================================
-alter table cbs_comissionados add column if not exists onboarding_script boolean not null default false;
-alter table cbs_comissionados add column if not exists onboarding_duplicidade boolean not null default false;
+alter table cbs_negocios add column if not exists razao_social text;
