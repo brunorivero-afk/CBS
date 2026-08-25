@@ -66,11 +66,15 @@ create table if not exists cbs_comissionados (
   contrato_data date,
   contrato_path text, -- arquivo do termo assinado, guardado no bucket privado cbs-contratos
   tamanho_equipe_estimado integer, -- pra líder de rede própria não cadastrada pessoa a pessoa: nº informado por ele, só pra acompanhar crescimento
+  onboarding_script boolean not null default false, -- recebeu e leu o script de abordagem padronizado
+  onboarding_duplicidade boolean not null default false, -- foi avisado da regra de cliente já correntista no mesmo banco
   observacoes text,
   created_at timestamptz default now()
 );
 alter table cbs_comissionados add column if not exists socio_vinculado text references cbs_usuarios(email) on delete set null;
 alter table cbs_comissionados add column if not exists cpf text;
+alter table cbs_comissionados add column if not exists onboarding_script boolean not null default false;
+alter table cbs_comissionados add column if not exists onboarding_duplicidade boolean not null default false;
 alter table cbs_comissionados add column if not exists contrato_status text not null default 'Pendente';
 do $$ begin
   alter table cbs_comissionados add constraint cbs_comissionados_contrato_status_check check (contrato_status in ('Pendente','Assinado'));

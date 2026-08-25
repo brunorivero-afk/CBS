@@ -603,6 +603,12 @@ tbody tr:hover{background:var(--card);}
     </div>
     <div class="field"><label>Observações</label><textarea id="mc-obs"></textarea></div>
     <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
+      <label>Onboarding</label>
+      <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:6px"><input type="checkbox" id="mc-onb-script"> Recebeu e leu o script de abordagem padronizado</label>
+      <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px"><input type="checkbox" id="mc-onb-duplicidade"> Foi avisado da regra: cliente já correntista no mesmo banco (em qualquer sede) fica de fora</label>
+      <div class="field-hint">O NDA (abaixo) é o 3º item do onboarding — some junto na barra de status assim que estiver "Assinado".</div>
+    </div>
+    <div class="field" style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px">
       <label>Termo de confidencialidade (NDA)</label>
       <div class="form-row" style="align-items:center;display:none" id="mc-nda-oficial-row">
         <button type="button" class="btn btn-primary btn-sm" onclick="verModeloNda()">📥 Baixar modelo oficial (revisado pelo advogado)</button>
@@ -794,7 +800,8 @@ async function refreshStore(){
     id:c.id, nome:c.nome, telefone:c.telefone, email:c.email, pix:c.pix, cpf:c.cpf, status:c.status,
     indicadoPor:c.indicado_por, socioVinculado:c.socio_vinculado, observacoes:c.observacoes, dataCadastro:c.created_at,
     contratoStatus:c.contrato_status||'Pendente', contratoData:c.contrato_data, contratoPath:c.contrato_path,
-    tamanhoEquipeEstimado:c.tamanho_equipe_estimado
+    tamanhoEquipeEstimado:c.tamanho_equipe_estimado,
+    onboardingScript:!!c.onboarding_script, onboardingDuplicidade:!!c.onboarding_duplicidade
   }));
 
   const ncByNeg = {};
@@ -858,6 +865,15 @@ function toast(msg,type){
   clearTimeout(window._toastTO); window._toastTO=setTimeout(()=>{t.className='';},3200);
 }
 function comById(id){ return STORE.comissionados.find(c=>c.id===id); }
+// onboarding completo = script + regra de duplicidade + NDA assinado (os 3 itens combinados)
+function onboardingCompleto(c){ return !!(c && c.onboardingScript && c.onboardingDuplicidade && c.contratoStatus==='Assinado'); }
+function onboardingPendentesTexto(c){
+  const faltando = [];
+  if(!c.onboardingScript) faltando.push('script');
+  if(!c.onboardingDuplicidade) faltando.push('regra de duplicidade');
+  if(c.contratoStatus!=='Assinado') faltando.push('NDA');
+  return faltando.join(', ');
+}
 function negById(id){ return STORE.negocios.find(n=>n.id===id); }
 function recById(id){ return STORE.recebimentos.find(r=>r.id===id); }
 // mês de competência do recebimento, no formato "AAAA-MM" (usa a data do lançamento).
@@ -1480,15 +1496,19 @@ function renderPendentesAprovacao(){
   painel.style.display = pendentes.length ? 'block' : 'none';
   if(!pendentes.length) return;
   const ehSocio = currentUser && currentUser.posicao==='Sócio';
-  lista.innerHTML = pendentes.map(n=>`
+  lista.innerHTML = pendentes.map(n=>{
+    const incompletos = (n.comissionados||[]).map(oc=>comById(oc.comissionadoId)).filter(c=>c && !onboardingCompleto(c));
+    return `
     <div class="kanban-card">
       <div class="empresa">${esc(n.empresaCliente)}</div>
       <div class="originador">Originador(es): ${origemTexto(n)}</div>
+      ${incompletos.length ? `<div class="fin" style="color:var(--warn)">⚠ ${incompletos.map(c=>esc(c.nome)).join(', ')} com onboarding incompleto</div>` : ''}
       ${ehSocio
         ? `<button class="btn btn-primary btn-sm" style="width:100%" onclick="aprovarNegocio(${n.id})">✓ Aprovar</button>`
         : `<div class="fin">Aguardando um sócio aprovar.</div>`}
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 function renderPipeline(){
   const board = document.getElementById('pipeline-board');
@@ -1780,7 +1800,7 @@ function renderRede(){
     const socioVinc = c.socioVinculado ? STORE.usuarios.find(u=>u.email===c.socioVinculado) : null;
     const totalAjustes = ajustesDoComissionado(c.id).reduce((a,j)=>a+Number(j.valor||0),0);
     return `<tr>
-      <td class="name-cell"><b>${esc(c.nome)}</b>${c.contratoStatus!=='Assinado'?`<small style="color:var(--warn)">⚠ NDA pendente</small>`:''}${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${c.tamanhoEquipeEstimado?`<small>+${c.tamanhoEquipeEstimado} na rede própria dele (informado, não cadastrada)</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}</td>
+      <td class="name-cell"><b>${esc(c.nome)}</b>${!onboardingCompleto(c)?`<small style="color:var(--warn)" title="Falta: ${esc(onboardingPendentesTexto(c))}">⚠ Onboarding pendente (${esc(onboardingPendentesTexto(c))})</small>`:''}${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${c.tamanhoEquipeEstimado?`<small>+${c.tamanhoEquipeEstimado} na rede própria dele (informado, não cadastrada)</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}</td>
       <td>${esc(c.telefone||c.email||'—')}</td>
       <td>${statusBadge(c.status)}</td>
       <td>${negs}</td>
@@ -1812,11 +1832,15 @@ function openComissionadoModal(id){
     setVal('mc-pix',c.pix); setVal('mc-cpf',c.cpf); setVal('mc-equipe', c.tamanhoEquipeEstimado!=null?c.tamanhoEquipeEstimado:'');
     setVal('mc-status',c.status); setVal('mc-obs',c.observacoes);
     setVal('mc-indicado', c.indicadoPor ? c.indicadoPor : (c.socioVinculado ? 'socio:'+c.socioVinculado : ''));
+    document.getElementById('mc-onb-script').checked = c.onboardingScript;
+    document.getElementById('mc-onb-duplicidade').checked = c.onboardingDuplicidade;
     setVal('mc-contrato-status', c.contratoStatus||'Pendente'); setVal('mc-contrato-data', c.contratoData||'');
     document.getElementById('mc-contrato-ver').style.display = c.contratoPath ? 'inline-block' : 'none';
   } else {
     ['mc-nome','mc-tel','mc-email','mc-pix','mc-cpf','mc-equipe','mc-obs'].forEach(id=>setVal(id,''));
     setVal('mc-status','Ativo'); setVal('mc-indicado','');
+    document.getElementById('mc-onb-script').checked = false;
+    document.getElementById('mc-onb-duplicidade').checked = false;
     setVal('mc-contrato-status','Pendente'); setVal('mc-contrato-data','');
     document.getElementById('mc-contrato-ver').style.display = 'none';
   }
@@ -1840,6 +1864,8 @@ async function saveComissionado(){
   const payload = { nome, telefone: val('mc-tel').trim()||null, email: val('mc-email').trim()||null, pix: val('mc-pix').trim()||null,
     cpf: val('mc-cpf').trim()||null, tamanho_equipe_estimado: equipeVal ? Number(equipeVal) : null,
     status: val('mc-status'), observacoes: val('mc-obs').trim()||null, indicado_por: indicadoPor, socio_vinculado: vinculoSocio,
+    onboarding_script: document.getElementById('mc-onb-script').checked,
+    onboarding_duplicidade: document.getElementById('mc-onb-duplicidade').checked,
     contrato_status: val('mc-contrato-status'), contrato_data: val('mc-contrato-data')||null };
   const arquivo = document.getElementById('mc-contrato-arquivo').files[0];
   if(arquivo){
