@@ -59,13 +59,14 @@ create table if not exists cbs_comissionados (
   email text,
   pix text,
   cpf text,
+  cnpj text, -- pra comissionado pessoa jurídica (ex: empresa parceira de intermediação)
+  razao_social text, -- nome registrado no CNPJ, quando pessoa jurídica
   status text not null default 'Ativo' check (status in ('Ativo','Inativo')),
   indicado_por bigint references cbs_comissionados(id) on delete set null,
   socio_vinculado text references cbs_usuarios(email) on delete set null, -- marca que esse cadastro representa a participação de um sócio como comissionado
   contrato_status text not null default 'Pendente' check (contrato_status in ('Pendente','Assinado')),
   contrato_data date,
   contrato_path text, -- arquivo do termo assinado, guardado no bucket privado cbs-contratos
-  tamanho_equipe_estimado integer, -- pra líder de rede própria não cadastrada pessoa a pessoa: nº informado por ele, só pra acompanhar crescimento
   onboarding_script boolean not null default false, -- recebeu e leu o script de abordagem padronizado
   onboarding_duplicidade boolean not null default false, -- foi avisado da regra de cliente já correntista no mesmo banco
   observacoes text,
@@ -73,6 +74,8 @@ create table if not exists cbs_comissionados (
 );
 alter table cbs_comissionados add column if not exists socio_vinculado text references cbs_usuarios(email) on delete set null;
 alter table cbs_comissionados add column if not exists cpf text;
+alter table cbs_comissionados add column if not exists cnpj text;
+alter table cbs_comissionados add column if not exists razao_social text;
 alter table cbs_comissionados add column if not exists onboarding_script boolean not null default false;
 alter table cbs_comissionados add column if not exists onboarding_duplicidade boolean not null default false;
 alter table cbs_comissionados add column if not exists contrato_status text not null default 'Pendente';
@@ -81,7 +84,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 alter table cbs_comissionados add column if not exists contrato_data date;
 alter table cbs_comissionados add column if not exists contrato_path text;
-alter table cbs_comissionados add column if not exists tamanho_equipe_estimado integer;
+alter table cbs_comissionados drop column if exists tamanho_equipe_estimado;
 
 alter table cbs_comissionados enable row level security;
 drop policy if exists "cbs_comissionados - só autorizados" on cbs_comissionados;
