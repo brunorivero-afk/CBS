@@ -46,8 +46,20 @@ $$;
 
 alter table cbs_usuarios enable row level security;
 drop policy if exists "cbs_usuarios - só autorizados" on cbs_usuarios;
-create policy "cbs_usuarios - só autorizados" on cbs_usuarios
-  for all using (cbs_is_authorized()) with check (cbs_is_authorized());
+-- IMPORTANTE (achado numa auditoria de segurança, 2026-08-26): "for all ... with check" tem 2 furos:
+-- (1) with check NÃO se aplica a DELETE no Postgres, então "for all" com using amplo libera DELETE
+--     pra qualquer um que passe no using, mesmo com with check mais restrito;
+-- (2) aqui o with check era cbs_is_authorized() — ou seja, QUALQUER usuário autorizado (inclusive
+--     posição Comercial) podia inserir/editar linhas em cbs_usuarios, incluindo dar 'Sócio' pra si
+--     mesmo. Corrigido: só Sócio/Operacional escreve; leitura continua igual (login depende disso).
+drop policy if exists "cbs_usuarios - select" on cbs_usuarios;
+create policy "cbs_usuarios - select" on cbs_usuarios for select using (cbs_is_authorized());
+drop policy if exists "cbs_usuarios - insert" on cbs_usuarios;
+create policy "cbs_usuarios - insert" on cbs_usuarios for insert with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_usuarios - update" on cbs_usuarios;
+create policy "cbs_usuarios - update" on cbs_usuarios for update using (cbs_is_authorized()) with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_usuarios - delete" on cbs_usuarios;
+create policy "cbs_usuarios - delete" on cbs_usuarios for delete using (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 2. REDE COMERCIAL (comissionados)
@@ -88,13 +100,24 @@ alter table cbs_comissionados drop column if exists tamanho_equipe_estimado;
 
 alter table cbs_comissionados enable row level security;
 drop policy if exists "cbs_comissionados - só autorizados" on cbs_comissionados;
+drop policy if exists "cbs_comissionados - acesso" on cbs_comissionados;
 -- Sócio/Operacional veem tudo. Comercial só enxerga o próprio cadastro (pra quando o portal existir).
-create policy "cbs_comissionados - acesso" on cbs_comissionados
-  for all using (
-    cbs_posicao_atual() in ('Sócio','Operacional')
-    or (cbs_posicao_atual()='Comercial' and id = cbs_comissionado_atual())
-  )
-  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+-- Escrita (insert/update/delete) é só Sócio/Operacional — antes, "for all ... with check" deixava
+-- Comercial DELETAR o próprio cadastro via API direta, já que with check não vale pra DELETE.
+drop policy if exists "cbs_comissionados - select" on cbs_comissionados;
+create policy "cbs_comissionados - select" on cbs_comissionados for select using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and id = cbs_comissionado_atual())
+);
+drop policy if exists "cbs_comissionados - insert" on cbs_comissionados;
+create policy "cbs_comissionados - insert" on cbs_comissionados for insert with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_comissionados - update" on cbs_comissionados;
+create policy "cbs_comissionados - update" on cbs_comissionados for update using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and id = cbs_comissionado_atual())
+) with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_comissionados - delete" on cbs_comissionados;
+create policy "cbs_comissionados - delete" on cbs_comissionados for delete using (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 3. NEGÓCIOS (relacionamento com o cliente) + divisão de comissão
@@ -128,15 +151,27 @@ update cbs_negocios set aprovado_por = 'bruno.rivero@gmail.com', aprovado_em = c
 
 alter table cbs_negocios enable row level security;
 drop policy if exists "cbs_negocios - só autorizados" on cbs_negocios;
+drop policy if exists "cbs_negocios - acesso" on cbs_negocios;
 -- Comercial só vê negócios em que o próprio comissionado_id participa da divisão.
-create policy "cbs_negocios - acesso" on cbs_negocios
-  for all using (
-    cbs_posicao_atual() in ('Sócio','Operacional')
-    or (cbs_posicao_atual()='Comercial' and exists (
-      select 1 from cbs_negocio_comissionados nc where nc.negocio_id = cbs_negocios.id and nc.comissionado_id = cbs_comissionado_atual()
-    ))
-  )
-  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+-- Escrita só Sócio/Operacional (antes, Comercial podia DELETAR o negócio inteiro via API direta).
+drop policy if exists "cbs_negocios - select" on cbs_negocios;
+create policy "cbs_negocios - select" on cbs_negocios for select using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and exists (
+    select 1 from cbs_negocio_comissionados nc where nc.negocio_id = cbs_negocios.id and nc.comissionado_id = cbs_comissionado_atual()
+  ))
+);
+drop policy if exists "cbs_negocios - insert" on cbs_negocios;
+create policy "cbs_negocios - insert" on cbs_negocios for insert with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_negocios - update" on cbs_negocios;
+create policy "cbs_negocios - update" on cbs_negocios for update using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and exists (
+    select 1 from cbs_negocio_comissionados nc where nc.negocio_id = cbs_negocios.id and nc.comissionado_id = cbs_comissionado_atual()
+  ))
+) with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_negocios - delete" on cbs_negocios;
+create policy "cbs_negocios - delete" on cbs_negocios for delete using (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 create table if not exists cbs_negocio_comissionados (
   id bigserial primary key,
@@ -149,12 +184,22 @@ create table if not exists cbs_negocio_comissionados (
 
 alter table cbs_negocio_comissionados enable row level security;
 drop policy if exists "cbs_negocio_comissionados - só autorizados" on cbs_negocio_comissionados;
-create policy "cbs_negocio_comissionados - acesso" on cbs_negocio_comissionados
-  for all using (
-    cbs_posicao_atual() in ('Sócio','Operacional')
-    or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
-  )
-  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_negocio_comissionados - acesso" on cbs_negocio_comissionados;
+-- Escrita só Sócio/Operacional (antes, Comercial podia DELETAR a própria linha de divisão via API direta).
+drop policy if exists "cbs_negocio_comissionados - select" on cbs_negocio_comissionados;
+create policy "cbs_negocio_comissionados - select" on cbs_negocio_comissionados for select using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+);
+drop policy if exists "cbs_negocio_comissionados - insert" on cbs_negocio_comissionados;
+create policy "cbs_negocio_comissionados - insert" on cbs_negocio_comissionados for insert with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_negocio_comissionados - update" on cbs_negocio_comissionados;
+create policy "cbs_negocio_comissionados - update" on cbs_negocio_comissionados for update using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+) with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_negocio_comissionados - delete" on cbs_negocio_comissionados;
+create policy "cbs_negocio_comissionados - delete" on cbs_negocio_comissionados for delete using (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 4. RECEBIMENTOS (lançamento do extrato do banco) + splits calculados
@@ -180,14 +225,27 @@ alter table cbs_recebimentos add column if not exists valor_corplink numeric(14,
 
 alter table cbs_recebimentos enable row level security;
 drop policy if exists "cbs_recebimentos - só autorizados" on cbs_recebimentos;
-create policy "cbs_recebimentos - acesso" on cbs_recebimentos
-  for all using (
-    cbs_posicao_atual() in ('Sócio','Operacional')
-    or (cbs_posicao_atual()='Comercial' and exists (
-      select 1 from cbs_recebimento_splits s where s.recebimento_id = cbs_recebimentos.id and s.comissionado_id = cbs_comissionado_atual()
-    ))
-  )
-  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_recebimentos - acesso" on cbs_recebimentos;
+-- Escrita só Sócio/Operacional (antes, Comercial podia DELETAR o recebimento inteiro via API direta
+-- — ou seja, apagar o registro de que um dinheiro entrou. Achado na mesma auditoria de 2026-08-26).
+drop policy if exists "cbs_recebimentos - select" on cbs_recebimentos;
+create policy "cbs_recebimentos - select" on cbs_recebimentos for select using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and exists (
+    select 1 from cbs_recebimento_splits s where s.recebimento_id = cbs_recebimentos.id and s.comissionado_id = cbs_comissionado_atual()
+  ))
+);
+drop policy if exists "cbs_recebimentos - insert" on cbs_recebimentos;
+create policy "cbs_recebimentos - insert" on cbs_recebimentos for insert with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_recebimentos - update" on cbs_recebimentos;
+create policy "cbs_recebimentos - update" on cbs_recebimentos for update using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and exists (
+    select 1 from cbs_recebimento_splits s where s.recebimento_id = cbs_recebimentos.id and s.comissionado_id = cbs_comissionado_atual()
+  ))
+) with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_recebimentos - delete" on cbs_recebimentos;
+create policy "cbs_recebimentos - delete" on cbs_recebimentos for delete using (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 create table if not exists cbs_recebimento_splits (
   id bigserial primary key,
@@ -203,12 +261,23 @@ alter table cbs_recebimento_splits add column if not exists comprovante_path tex
 
 alter table cbs_recebimento_splits enable row level security;
 drop policy if exists "cbs_recebimento_splits - só autorizados" on cbs_recebimento_splits;
-create policy "cbs_recebimento_splits - acesso" on cbs_recebimento_splits
-  for all using (
-    cbs_posicao_atual() in ('Sócio','Operacional')
-    or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
-  )
-  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_recebimento_splits - acesso" on cbs_recebimento_splits;
+-- Escrita só Sócio/Operacional (antes, Comercial podia DELETAR a própria linha de comissão via API
+-- direta — apagar prova de quanto lhe era devido/foi pago).
+drop policy if exists "cbs_recebimento_splits - select" on cbs_recebimento_splits;
+create policy "cbs_recebimento_splits - select" on cbs_recebimento_splits for select using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+);
+drop policy if exists "cbs_recebimento_splits - insert" on cbs_recebimento_splits;
+create policy "cbs_recebimento_splits - insert" on cbs_recebimento_splits for insert with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_recebimento_splits - update" on cbs_recebimento_splits;
+create policy "cbs_recebimento_splits - update" on cbs_recebimento_splits for update using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+) with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_recebimento_splits - delete" on cbs_recebimento_splits;
+create policy "cbs_recebimento_splits - delete" on cbs_recebimento_splits for delete using (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 5. CONFIGURAÇÕES (linha única: % imposto padrão, % Agente Banco padrão)
@@ -288,9 +357,18 @@ values ('cbs-comprovantes', 'cbs-comprovantes', false)
 on conflict (id) do nothing;
 
 drop policy if exists "cbs-comprovantes - acesso" on storage.objects;
-create policy "cbs-comprovantes - acesso" on storage.objects
-  for all using (bucket_id = 'cbs-comprovantes' and cbs_is_authorized())
-  with check (bucket_id = 'cbs-comprovantes' and cbs_is_authorized());
+-- Leitura continua pra qualquer autorizado (Comercial vê comprovante do próprio pagamento no extrato).
+-- Escrita (subir/trocar/apagar arquivo) só Sócio/Operacional — antes, "for all" com with check amplo
+-- deixava qualquer autorizado (inclusive Comercial) apagar ou sobrescrever comprovante de QUALQUER
+-- pagamento, de qualquer comissionado, via API direta no Storage.
+drop policy if exists "cbs-comprovantes - select" on storage.objects;
+create policy "cbs-comprovantes - select" on storage.objects for select using (bucket_id = 'cbs-comprovantes' and cbs_is_authorized());
+drop policy if exists "cbs-comprovantes - insert" on storage.objects;
+create policy "cbs-comprovantes - insert" on storage.objects for insert with check (bucket_id = 'cbs-comprovantes' and cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs-comprovantes - update" on storage.objects;
+create policy "cbs-comprovantes - update" on storage.objects for update using (bucket_id = 'cbs-comprovantes' and cbs_is_authorized()) with check (bucket_id = 'cbs-comprovantes' and cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs-comprovantes - delete" on storage.objects;
+create policy "cbs-comprovantes - delete" on storage.objects for delete using (bucket_id = 'cbs-comprovantes' and cbs_posicao_atual() in ('Sócio','Operacional'));
 
 -- ============================================================
 -- 9. RETIRADAS / PRÓ-LABORE — registro à parte, não entra em nenhum cálculo
@@ -333,12 +411,22 @@ create table if not exists cbs_ajustes (
 
 alter table cbs_ajustes enable row level security;
 drop policy if exists "cbs_ajustes - acesso" on cbs_ajustes;
-create policy "cbs_ajustes - acesso" on cbs_ajustes
-  for all using (
-    cbs_posicao_atual() in ('Sócio','Operacional')
-    or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
-  )
-  with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+-- Escrita só Sócio/Operacional (antes, Comercial podia DELETAR um estorno/ajuste lançado contra o
+-- próprio comissionado_id via API direta — apagando um abatimento que pesava contra ele).
+drop policy if exists "cbs_ajustes - select" on cbs_ajustes;
+create policy "cbs_ajustes - select" on cbs_ajustes for select using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+);
+drop policy if exists "cbs_ajustes - insert" on cbs_ajustes;
+create policy "cbs_ajustes - insert" on cbs_ajustes for insert with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_ajustes - update" on cbs_ajustes;
+create policy "cbs_ajustes - update" on cbs_ajustes for update using (
+  cbs_posicao_atual() in ('Sócio','Operacional')
+  or (cbs_posicao_atual()='Comercial' and comissionado_id = cbs_comissionado_atual())
+) with check (cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs_ajustes - delete" on cbs_ajustes;
+create policy "cbs_ajustes - delete" on cbs_ajustes for delete using (cbs_posicao_atual() in ('Sócio','Operacional'));
 
 drop trigger if exists cbs_audit_ajustes on cbs_ajustes;
 create trigger cbs_audit_ajustes after insert or update or delete on cbs_ajustes for each row execute function cbs_audit_trigger();
@@ -351,6 +439,12 @@ values ('cbs-contratos', 'cbs-contratos', false)
 on conflict (id) do nothing;
 
 drop policy if exists "cbs-contratos - acesso" on storage.objects;
-create policy "cbs-contratos - acesso" on storage.objects
-  for all using (bucket_id = 'cbs-contratos' and cbs_is_authorized())
-  with check (bucket_id = 'cbs-contratos' and cbs_is_authorized());
+-- Mesmo ajuste do bucket cbs-comprovantes: leitura pra qualquer autorizado, escrita só Sócio/Operacional.
+drop policy if exists "cbs-contratos - select" on storage.objects;
+create policy "cbs-contratos - select" on storage.objects for select using (bucket_id = 'cbs-contratos' and cbs_is_authorized());
+drop policy if exists "cbs-contratos - insert" on storage.objects;
+create policy "cbs-contratos - insert" on storage.objects for insert with check (bucket_id = 'cbs-contratos' and cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs-contratos - update" on storage.objects;
+create policy "cbs-contratos - update" on storage.objects for update using (bucket_id = 'cbs-contratos' and cbs_is_authorized()) with check (bucket_id = 'cbs-contratos' and cbs_posicao_atual() in ('Sócio','Operacional'));
+drop policy if exists "cbs-contratos - delete" on storage.objects;
+create policy "cbs-contratos - delete" on storage.objects for delete using (bucket_id = 'cbs-contratos' and cbs_posicao_atual() in ('Sócio','Operacional'));
