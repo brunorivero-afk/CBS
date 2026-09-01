@@ -294,6 +294,10 @@ insert into cbs_config (id) values (1) on conflict (id) do nothing;
 alter table cbs_config add column if not exists corplink_pct numeric(6,2) not null default 20;
 alter table cbs_config add column if not exists mes_fechado_ate text;
 alter table cbs_config add column if not exists nda_template_path text;
+-- % padrão do comissionado BIDATX em negócio novo (sociedade Bruno/Diego/Eduardo, 2026-08-27) — o
+-- modal de Negócio já pré-preenche esse valor ao adicionar a BIDATX à divisão; continua editável
+-- por negócio pra cobrir exceção de negociação, exatamente como os outros %s desta tabela.
+alter table cbs_config add column if not exists bidatx_pct numeric(6,2) not null default 38;
 
 alter table cbs_config enable row level security;
 drop policy if exists "cbs_config - só autorizados" on cbs_config;
@@ -448,3 +452,58 @@ drop policy if exists "cbs-contratos - update" on storage.objects;
 create policy "cbs-contratos - update" on storage.objects for update using (bucket_id = 'cbs-contratos' and cbs_is_authorized()) with check (bucket_id = 'cbs-contratos' and cbs_posicao_atual() in ('Sócio','Operacional'));
 drop policy if exists "cbs-contratos - delete" on storage.objects;
 create policy "cbs-contratos - delete" on storage.objects for delete using (bucket_id = 'cbs-contratos' and cbs_posicao_atual() in ('Sócio','Operacional'));
+
+-- ============================================================
+-- 12. PONTE PRA BIDATX CORRESPONDÊNCIA (2026-08-27) — sociedade secreta do Bruno na BIDATX
+--     (Eduardo, Diego). Eduardo e Diego são gblcom_usuarios, NUNCA cbs_usuarios (de propósito —
+--     ninguém de fora tem acesso ao CBS). Sem essas funções, o RLS normal do CBS deixaria o app
+--     deles completamente vazio (nenhuma linha visível). São security definer, então rodam com
+--     privilégio elevado e ignoram RLS — por isso o próprio corpo da função checa
+--     gblcom_is_authorized() (função já criada pelo gblcom_setup.sql, mesmo projeto Supabase) antes
+--     de devolver qualquer linha.
+--     Regra de discrição embutida: se o Vinicius (vickcampanario@gmail.com) está entre os
+--     comissionados do negócio — ou seja, ele vendeu por conta própria — o nome do cliente NUNCA
+--     aparece pra BIDATX, vira "Cliente confidencial". Automático, sem marcação manual por negócio.
+-- ============================================================
+create or replace function cbs_bidatx_negocios()
+returns table(negocio_id bigint, empresa text, percentual numeric)
+language plpgsql security definer stable as $$
+begin
+  if not gblcom_is_authorized() then return; end if;
+  return query
+    select n.id,
+      case when exists (
+        select 1 from cbs_negocio_comissionados nc2
+        join cbs_comissionados c2 on c2.id = nc2.comissionado_id
+        where nc2.negocio_id = n.id and c2.socio_vinculado = 'vickcampanario@gmail.com'
+      ) then 'Cliente confidencial' else n.empresa_cliente end,
+      nc.percentual
+    from cbs_negocio_comissionados nc
+    join cbs_negocios n on n.id = nc.negocio_id
+    join cbs_comissionados c on c.id = nc.comissionado_id
+    where c.nome ilike '%bidatx%';
+end;
+$$;
+grant execute on function cbs_bidatx_negocios() to authenticated;
+
+create or replace function cbs_bidatx_recebimentos()
+returns table(recebimento_id bigint, negocio_id bigint, empresa text, data date, referencia text, valor numeric)
+language plpgsql security definer stable as $$
+begin
+  if not gblcom_is_authorized() then return; end if;
+  return query
+    select r.id, r.negocio_id,
+      case when exists (
+        select 1 from cbs_negocio_comissionados nc2
+        join cbs_comissionados c2 on c2.id = nc2.comissionado_id
+        where nc2.negocio_id = r.negocio_id and c2.socio_vinculado = 'vickcampanario@gmail.com'
+      ) then 'Cliente confidencial' else n.empresa_cliente end,
+      r.data, r.referencia, s.valor
+    from cbs_recebimento_splits s
+    join cbs_recebimentos r on r.id = s.recebimento_id
+    join cbs_negocios n on n.id = r.negocio_id
+    join cbs_comissionados c on c.id = s.comissionado_id
+    where c.nome ilike '%bidatx%';
+end;
+$$;
+grant execute on function cbs_bidatx_recebimentos() to authenticated;

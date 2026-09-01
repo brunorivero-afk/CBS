@@ -465,6 +465,16 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>% padrão da BIDATX em negócio novo</h3></div>
+          <p class="field-hint" style="margin-bottom:16px">Todo negócio novo já entra com a BIDATX na divisão, com essa % (sobre o Lucro Líquido) pré-preenchida — edite direto no negócio quando for exceção de negociação, sem precisar mudar o padrão aqui.</p>
+          <div class="field">
+            <label>% padrão da BIDATX</label>
+            <input type="number" step="0.01" min="0" max="100" id="cfg-bidatx-pct">
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="saveBidatxPct()">Salvar</button>
+        </div>
+
+        <div class="panel" style="max-width:520px">
           <div class="panel-head"><h3>Manutenção</h3></div>
           <p class="field-hint" style="margin-bottom:14px">
             Cada recebimento guarda os valores já calculados no momento do lançamento. Se a fórmula mudar depois, recebimentos antigos continuam com os números de quando foram salvos. Use o botão abaixo pra recalcular com a fórmula atual — recebimentos que já têm algum repasse marcado como <b>Pago</b> são pulados automaticamente, pra nunca alterar um valor que já foi de fato pago.
@@ -779,7 +789,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ================= DADOS (espelho local do Supabase, populado por refreshStore()) ================= */
-let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, mesFechadoAte:null, ndaTemplatePath:null } };
+let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, bidatxPct:38, mesFechadoAte:null, ndaTemplatePath:null } };
 let currentUser = null; // { email, nome, posicao }
 
 async function refreshStore(){
@@ -825,8 +835,8 @@ async function refreshStore(){
     });
   });
   STORE.config = configR.data
-    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, mesFechadoAte: configR.data.mes_fechado_ate||null, ndaTemplatePath: configR.data.nda_template_path||null }
-    : { impostoPct:0, agentePct:50, corplinkPct:20, mesFechadoAte:null, ndaTemplatePath:null };
+    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, bidatxPct: configR.data.bidatx_pct!=null?Number(configR.data.bidatx_pct):38, mesFechadoAte: configR.data.mes_fechado_ate||null, ndaTemplatePath: configR.data.nda_template_path||null }
+    : { impostoPct:0, agentePct:50, corplinkPct:20, bidatxPct:38, mesFechadoAte:null, ndaTemplatePath:null };
 
   STORE.recebimentos = (recebimentosR.data||[]).map(r=>({
     id:r.id, negocioId:r.negocio_id, data:r.data, referencia:r.referencia,
@@ -1015,12 +1025,21 @@ function renderConfig(){
   el.value = STORE.config.agentePct;
   document.getElementById('cfg-imposto-pct').value = STORE.config.impostoPct;
   document.getElementById('cfg-corplink-pct').value = STORE.config.corplinkPct;
+  document.getElementById('cfg-bidatx-pct').value = STORE.config.bidatxPct;
   updateConfigPreview();
   renderUsuarios();
   renderRetiradas();
   renderMesFechadoStatus();
   renderImpostoPorMes();
   renderNdaStatus();
+}
+async function saveBidatxPct(){
+  const pct = Number(val('cfg-bidatx-pct'));
+  if(isNaN(pct) || pct<0 || pct>100){ toast('Informe um percentual entre 0 e 100.','err'); return; }
+  const { error } = await sbClient.from('cbs_config').update({ bidatx_pct: pct }).eq('id',1);
+  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
+  toast('% padrão da BIDATX salvo.');
+  await refreshStore(); renderAll();
 }
 function renderNdaStatus(){
   const el = document.getElementById('cfg-nda-status');
@@ -1685,7 +1704,10 @@ function openNegocioModal(id){
   } else {
     ['mn-empresa','mn-razao-social','mn-cnpj','mn-obs'].forEach(id=>setVal(id,''));
     setVal('mn-data', todayISO()); setVal('mn-status','Ativo');
-    mnSplitRows = [];
+    // negócio novo já entra com a BIDATX na divisão, % padrão de Configurações — sociedade
+    // Bruno/Diego/Eduardo (2026-08-27). Editável/removível igual qualquer outra linha da divisão.
+    const bidatx = STORE.comissionados.find(c=>(c.nome||'').toLowerCase().includes('bidatx'));
+    mnSplitRows = bidatx ? [{ comissionadoId: bidatx.id, percentual: STORE.config.bidatxPct, principal: false }] : [];
   }
   if(!STORE.comissionados.length){
     toast('Cadastre ao menos um comissionado na aba Rede antes de montar a divisão.', 'err');
