@@ -297,7 +297,10 @@ alter table cbs_config add column if not exists nda_template_path text;
 -- % padrão do comissionado BIDATX em negócio novo (sociedade Bruno/Diego/Eduardo, 2026-08-27) — o
 -- modal de Negócio já pré-preenche esse valor ao adicionar a BIDATX à divisão; continua editável
 -- por negócio pra cobrir exceção de negociação, exatamente como os outros %s desta tabela.
-alter table cbs_config add column if not exists bidatx_pct numeric(6,2) not null default 38;
+-- 70% = 50% comissão de venda + 20% pool de sócios (a "conta real" validada com o usuário) — corrigido
+-- em 2026-09-02, o default original (38) tinha sido um erro meu (confundi valor em R$ com %).
+alter table cbs_config add column if not exists bidatx_pct numeric(6,2) not null default 70;
+update cbs_config set bidatx_pct = 70 where id = 1 and bidatx_pct = 38;
 
 alter table cbs_config enable row level security;
 drop policy if exists "cbs_config - só autorizados" on cbs_config;
