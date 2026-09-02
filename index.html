@@ -2109,27 +2109,35 @@ async function deleteRecebimento(id){
 }
 
 /* ================= PAGAMENTOS ================= */
+// pra BIDATX (é um guarda-chuva, não uma pessoa de verdade), "Pago" aqui só significa que o dinheiro
+// saiu da conta pro lado da BIDATX — quem recebe de fato (Lucilo, Bruno, Diego, Eduardo) é resolvido
+// depois, na BIDATX Correspondência. Rótulo diferente pra não parecer que já chegou em alguém.
+function ehBidatx(comissionadoId){ return (comById(comissionadoId)?.nome||'').toLowerCase().includes('bidatx'); }
 function renderPagamentos(){
   const filtro = document.getElementById('pag-filtro')?.value ?? 'Pendente';
   let splits = allSplits();
   if(filtro) splits = splits.filter(s=>s.statusPagamento===filtro);
   splits.sort((a,b)=>(a.dataRecebimento||'').localeCompare(b.dataRecebimento||''));
   const tb = document.querySelector('#tbl-pagamentos tbody');
-  tb.innerHTML = splits.length ? splits.map(s=>`
+  tb.innerHTML = splits.length ? splits.map(s=>{
+    const bidatx = ehBidatx(s.comissionadoId);
+    const rotuloPago = bidatx ? 'Repassado pra BIDATX' : 'Pago';
+    return `
     <tr>
       <td>${esc(comById(s.comissionadoId)?.nome||'?')}</td>
       <td>${esc(s.empresa)}</td>
       <td>${fmtData(s.dataRecebimento)}${s.referencia?` <small style="color:var(--text-faint)">(${esc(fmtRef(s.referencia))})</small>`:''}</td>
       <td>${fmtR$(s.valor)}</td>
-      <td>${statusBadge(s.statusPagamento)}</td>
+      <td>${s.statusPagamento==='Pago' ? `<span class="badge green">${rotuloPago}</span>` : statusBadge(s.statusPagamento)}</td>
       <td>${s.dataPagamento?fmtData(s.dataPagamento):'—'}</td>
       <td><div class="row-actions">
         ${s.comprovantePath ? `<button class="icon-btn" onclick="verComprovante('${esc(s.comprovantePath)}')" title="Ver comprovante">📎</button>` : ''}
         ${s.statusPagamento==='Pendente'
-          ? `<button class="btn btn-primary btn-sm" onclick="openPagarModal(${s.recebimentoId},${s.comissionadoId})">Marcar pago</button>`
+          ? `<button class="btn btn-primary btn-sm" onclick="openPagarModal(${s.recebimentoId},${s.comissionadoId})">${bidatx?'Marcar repassado':'Marcar pago'}</button>`
           : `<button class="btn btn-ghost btn-sm" onclick="revertPagamento(${s.recebimentoId},${s.comissionadoId})">Reverter</button>`}
       </div></td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="7">Nenhum item encontrado para este filtro.</td></tr>`;
+    </tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="7">Nenhum item encontrado para este filtro.</td></tr>`;
 }
 function openPagarModal(recId, comId){
   setVal('mp-recid', recId); setVal('mp-comid', comId); setVal('mp-data', todayISO());
