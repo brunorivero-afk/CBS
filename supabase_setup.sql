@@ -317,6 +317,13 @@ update cbs_config set bidatx_pct = 70 where id = 1 and bidatx_pct = 38;
 alter table cbs_config add column if not exists cartao_bidatx_pct_normal numeric(6,2) not null default 72.5;
 alter table cbs_config add column if not exists cartao_bidatx_pct_vick numeric(6,2) not null default 22.5;
 
+-- % padrão de Intermediação e Custo Operacional pro Cartão de Crédito — diferente do Sicoob (imposto
+-- continua o mesmo campo/valor, é a mesma empresa). Os dois saem em PARALELO do Lucro Bruto, calculado
+-- em calcCascataRecebimento() quando cbs_negocios.produto = 'Cartão de Crédito' (não sequencial como
+-- o CorpLink/Custo Operacional do Sicoob).
+alter table cbs_config add column if not exists cartao_intermediacao_pct numeric(6,2) not null default 10;
+alter table cbs_config add column if not exists cartao_custo_operacional_pct numeric(6,2) not null default 10;
+
 alter table cbs_config enable row level security;
 drop policy if exists "cbs_config - só autorizados" on cbs_config;
 create policy "cbs_config - acesso" on cbs_config

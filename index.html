@@ -348,6 +348,10 @@ tbody tr:hover{background:var(--card);}
           <div class="aprovacao-lista" id="lista-aprovacao"></div>
         </div>
         <p class="field-hint" style="margin-bottom:14px">Acompanha a situação de cada negócio junto ao Sicoob, do indicado até a conta aberta. Use ◀ Voltar / Avançar ▶ em cada card pra mudar de etapa. "Recebido" é automático e mensal — o negócio aparece ali só nos meses em que teve Recebimento lançado; fora isso, some do quadro (já formou, o controle contínuo fica em Recebimentos/Dashboard/Extratos).</p>
+        <div class="tabs" id="pipeline-produto-tabs" style="margin-bottom:14px">
+          <div class="tab active" data-produto="Sicoob" onclick="setPipelineProduto('Sicoob')">Sicoob</div>
+          <div class="tab" data-produto="Cartão de Crédito" onclick="setPipelineProduto('Cartão de Crédito')">Cartão de Crédito</div>
+        </div>
         <div class="toolbar" style="margin-bottom:14px">
           <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim)"><input type="checkbox" id="rel-interno"> Incluir números internos (comissão/valores)</label>
           <button class="btn btn-ghost btn-sm" onclick="gerarRelatorioPipeline()">🖨 Gerar relatório</button>
@@ -472,6 +476,14 @@ tbody tr:hover{background:var(--card);}
             <input type="number" step="0.01" min="0" max="100" id="cfg-bidatx-pct">
           </div>
           <button class="btn btn-primary btn-sm" onclick="saveBidatxPct()">Salvar</button>
+        </div>
+
+        <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>Divisão da comissão — produto Cartão de Crédito</h3></div>
+          <p class="field-hint" style="margin-bottom:16px">Diferente do Sicoob: aqui Intermediação e Custo Operacional saem os dois direto do Lucro Bruto (mesmo imposto do Sicoob), em paralelo — não um sequencial ao outro. Editável por lançamento, isso aqui é só o padrão pros novos.</p>
+          <div class="field"><label>% Intermediação (sobre o Lucro Bruto)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-intermediacao-pct"></div>
+          <div class="field"><label>% Custo Operacional (sobre o Lucro Bruto)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-agente-pct"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveCartaoCascataPct()">Salvar</button>
         </div>
 
         <div class="panel" style="max-width:520px">
@@ -762,7 +774,7 @@ tbody tr:hover{background:var(--card);}
     <div class="form-row c4">
       <div class="field"><label>Valor recebido (R$) *</label><input type="number" step="0.01" id="mr-valor" oninput="renderRecebimentoSplitPreview()"></div>
       <div class="field"><label>% de imposto</label><input type="number" step="0.01" min="0" max="100" id="mr-imposto-pct" oninput="renderRecebimentoSplitPreview()"></div>
-      <div class="field"><label>% CorpLink</label><input type="number" step="0.01" min="0" max="100" id="mr-corplink-pct" oninput="renderRecebimentoSplitPreview()"></div>
+      <div class="field"><label id="mr-corplink-label">% CorpLink</label><input type="number" step="0.01" min="0" max="100" id="mr-corplink-pct" oninput="renderRecebimentoSplitPreview()"></div>
       <div class="field"><label>% retido pelo Custo Operacional</label><input type="number" step="0.01" min="0" max="100" id="mr-agente-pct" oninput="renderRecebimentoSplitPreview()"></div>
     </div>
     <div class="field"><label>Observações</label><input type="text" id="mr-obs"></div>
@@ -806,7 +818,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ================= DADOS (espelho local do Supabase, populado por refreshStore()) ================= */
-let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, bidatxPct:70, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, mesFechadoAte:null, ndaTemplatePath:null } };
+let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, bidatxPct:70, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, cartaoIntermediacaoPct:10, cartaoCustoOperacionalPct:10, mesFechadoAte:null, ndaTemplatePath:null } };
 let currentUser = null; // { email, nome, posicao }
 
 async function refreshStore(){
@@ -856,8 +868,10 @@ async function refreshStore(){
     ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, bidatxPct: configR.data.bidatx_pct!=null?Number(configR.data.bidatx_pct):70,
         cartaoBidatxPctNormal: configR.data.cartao_bidatx_pct_normal!=null?Number(configR.data.cartao_bidatx_pct_normal):72.5,
         cartaoBidatxPctVick: configR.data.cartao_bidatx_pct_vick!=null?Number(configR.data.cartao_bidatx_pct_vick):22.5,
+        cartaoIntermediacaoPct: configR.data.cartao_intermediacao_pct!=null?Number(configR.data.cartao_intermediacao_pct):10,
+        cartaoCustoOperacionalPct: configR.data.cartao_custo_operacional_pct!=null?Number(configR.data.cartao_custo_operacional_pct):10,
         mesFechadoAte: configR.data.mes_fechado_ate||null, ndaTemplatePath: configR.data.nda_template_path||null }
-    : { impostoPct:0, agentePct:50, corplinkPct:20, bidatxPct:70, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, mesFechadoAte:null, ndaTemplatePath:null };
+    : { impostoPct:0, agentePct:50, corplinkPct:20, bidatxPct:70, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, cartaoIntermediacaoPct:10, cartaoCustoOperacionalPct:10, mesFechadoAte:null, ndaTemplatePath:null };
 
   STORE.recebimentos = (recebimentosR.data||[]).map(r=>({
     id:r.id, negocioId:r.negocio_id, data:r.data, referencia:r.referencia,
@@ -1049,6 +1063,8 @@ function renderConfig(){
   document.getElementById('cfg-bidatx-pct').value = STORE.config.bidatxPct;
   document.getElementById('cfg-cartao-bidatx-normal').value = STORE.config.cartaoBidatxPctNormal;
   document.getElementById('cfg-cartao-bidatx-vick').value = STORE.config.cartaoBidatxPctVick;
+  document.getElementById('cfg-cartao-intermediacao-pct').value = STORE.config.cartaoIntermediacaoPct;
+  document.getElementById('cfg-cartao-agente-pct').value = STORE.config.cartaoCustoOperacionalPct;
   updateConfigPreview();
   renderUsuarios();
   renderRetiradas();
@@ -1062,6 +1078,15 @@ async function saveBidatxPct(){
   const { error } = await sbClient.from('cbs_config').update({ bidatx_pct: pct }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
   toast('% padrão da BIDATX salvo.');
+  await refreshStore(); renderAll();
+}
+async function saveCartaoCascataPct(){
+  const intermediacao = Number(val('cfg-cartao-intermediacao-pct'));
+  const custoOp = Number(val('cfg-cartao-agente-pct'));
+  if(isNaN(intermediacao) || intermediacao<0 || intermediacao>100 || isNaN(custoOp) || custoOp<0 || custoOp>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
+  const { error } = await sbClient.from('cbs_config').update({ cartao_intermediacao_pct: intermediacao, cartao_custo_operacional_pct: custoOp }).eq('id',1);
+  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
+  toast('Divisão padrão do Cartão de Crédito salva.');
   await refreshStore(); renderAll();
 }
 async function saveCartaoBidatxPct(){
@@ -1325,7 +1350,8 @@ async function recalcularRecebimentos(){
     const impostoPct = r.percentualImposto!=null ? r.percentualImposto : STORE.config.impostoPct;
     const agentePct = r.percentualAgente!=null ? r.percentualAgente : STORE.config.agentePct;
     const corplinkPct = r.percentualCorplink!=null ? r.percentualCorplink : STORE.config.corplinkPct;
-    const c = calcCascataRecebimento(Number(r.valorRecebido||0), impostoPct, agentePct, corplinkPct);
+    const produtoRec = negById(r.negocioId)?.produto || 'Sicoob';
+    const c = calcCascataRecebimento(Number(r.valorRecebido||0), impostoPct, agentePct, corplinkPct, produtoRec);
     await sbClient.from('cbs_recebimentos').update({
       percentual_imposto: impostoPct, valor_imposto: c.valorImposto,
       percentual_agente: agentePct, valor_agente: c.valorAgente,
@@ -1526,11 +1552,18 @@ const PIPELINE_COLUNAS = [
 // "Recebido" só pega quem teve recebimento NO MÊS CORRENTE. Quem já recebeu algum dia mas não
 // neste mês simplesmente some do quadro inteiro — o pipeline acompanha até "formar", depois
 // o controle contínuo já é feito em Recebimentos/Dashboard/Extratos, não faz sentido ficar aqui.
+let pipelineProdutoAtivo = 'Sicoob';
+function setPipelineProduto(produto){
+  pipelineProdutoAtivo = produto;
+  document.querySelectorAll('#pipeline-produto-tabs .tab').forEach(el=>el.classList.toggle('active', el.dataset.produto===produto));
+  renderPipeline();
+}
 function agruparPipeline(){
   const grupos = {}; PIPELINE_COLUNAS.forEach(c=>grupos[c.key]=[]);
   const mesAtual = todayISO().slice(0,7);
   // negócio sem aprovação de sócio não entra no pipeline nem pode ser trabalhado — fica só na fila de aprovação
-  STORE.negocios.filter(n=>n.status!=='Cancelado' && n.aprovadoPor).forEach(n=>{
+  // (a fila de aprovação em si fica fora do filtro de produto — ver renderPendentesAprovacao)
+  STORE.negocios.filter(n=>n.status!=='Cancelado' && n.aprovadoPor && (n.produto||'Sicoob')===pipelineProdutoAtivo).forEach(n=>{
     const finMes = financeiroNegocioMes(n.id, mesAtual);
     if(finMes.qtd>0){
       grupos['Recebido'].push({n, fin:finMes});
@@ -2030,19 +2063,42 @@ function buildSplitRowsFromNegocio(negocioId, existingSplits){
       comprovantePath: prev ? prev.comprovantePath : null };
   });
 }
+// atualiza o rótulo "CorpLink"/"Intermediação" conforme o produto do negócio selecionado, e devolve
+// o produto (pra quem chamar decidir se pré-preenche defaults diferentes).
+function labelEDefaultsPorProduto(negId){
+  const produto = negById(negId)?.produto || 'Sicoob';
+  const lbl = document.getElementById('mr-corplink-label');
+  if(lbl) lbl.textContent = produto==='Cartão de Crédito' ? '% Intermediação' : '% CorpLink';
+  return produto;
+}
 function onRecebimentoNegocioChange(){
   const negId = Number(val('mr-negocio'));
   mrSplitRows = buildSplitRowsFromNegocio(negId, mrSplitRows);
+  const produto = labelEDefaultsPorProduto(negId);
+  // só pré-preenche default de produto num recebimento NOVO — editando um já salvo, respeita o que
+  // já está gravado (setado em openRecebimentoModal a partir dos valores do próprio recebimento).
+  if(!val('mr-id')){
+    setVal('mr-corplink-pct', produto==='Cartão de Crédito' ? STORE.config.cartaoIntermediacaoPct : STORE.config.corplinkPct);
+    setVal('mr-agente-pct', produto==='Cartão de Crédito' ? STORE.config.cartaoCustoOperacionalPct : STORE.config.agentePct);
+  }
   renderRecebimentoSplitPreview();
 }
-// cascata: Recebido -> Imposto -> Lucro Bruto -> CorpLink (sobre o Lucro Bruto) -> Custo Operacional
-// (sobre o que SOBRA depois do CorpLink, não sobre o Lucro Bruto original) -> Lucro Líquido.
-// É sequencial, uma etapa consome a base da próxima — não paralelo.
-// A comissão da rede é um % calculado SOBRE O LUCRO LÍQUIDO (não sobre o Lucro Bruto).
-// Cada etapa é arredondada em centavos (round2) pra não acumular diferença de fração de centavo nos totais.
-function calcCascataRecebimento(valorRecebido, impostoPct, agentePct, corplinkPct){
+// cascata do Sicoob: Recebido -> Imposto -> Lucro Bruto -> CorpLink (sobre o Lucro Bruto) -> Custo
+// Operacional (sobre o que SOBRA depois do CorpLink, não sobre o Lucro Bruto original) -> Lucro
+// Líquido. É SEQUENCIAL, uma etapa consome a base da próxima.
+// cascata do Cartão de Crédito (2026-09-14): Intermediação e Custo Operacional saem os DOIS direto
+// do Lucro Bruto (mesma base), em PARALELO — não um sequencial ao outro como no Sicoob.
+// Nos dois casos, a comissão da rede é um % calculado SOBRE O LUCRO LÍQUIDO (não sobre o Lucro Bruto).
+// Cada etapa é arredondada em centavos (round2) pra não acumular diferença de fração de centavo.
+function calcCascataRecebimento(valorRecebido, impostoPct, agentePct, corplinkPct, produto='Sicoob'){
   const valorImposto = round2(valorRecebido * impostoPct / 100);
   const lucroBrutoCBS = round2(valorRecebido - valorImposto);
+  if(produto==='Cartão de Crédito'){
+    const valorCorplink = round2(lucroBrutoCBS * (Number(corplinkPct)||0) / 100); // "Intermediação"
+    const valorAgente = round2(lucroBrutoCBS * (Number(agentePct)||0) / 100); // Custo Operacional
+    const valorLiquido = round2(lucroBrutoCBS - valorCorplink - valorAgente);
+    return { valorImposto, lucroBrutoCBS, valorCorplink, baseAgente: lucroBrutoCBS, valorAgente, valorLiquido };
+  }
   const valorCorplink = round2(lucroBrutoCBS * (Number(corplinkPct)||0) / 100);
   const baseAgente = round2(lucroBrutoCBS - valorCorplink); // o que sobra do Lucro Bruto depois do CorpLink
   const valorAgente = round2(baseAgente * agentePct / 100);
@@ -2051,14 +2107,24 @@ function calcCascataRecebimento(valorRecebido, impostoPct, agentePct, corplinkPc
 }
 function renderRecebimentoSplitPreview(){
   const box = document.getElementById('mr-split-preview');
+  const negId = Number(val('mr-negocio'));
+  const produto = negById(negId)?.produto || 'Sicoob';
   const valorTotal = Number(val('mr-valor'))||0;
   const impostoPct = Number(val('mr-imposto-pct'))||0;
   const agentePct = Number(val('mr-agente-pct'))||0;
   const corplinkPct = Number(val('mr-corplink-pct'))||0;
-  const c = calcCascataRecebimento(valorTotal, impostoPct, agentePct, corplinkPct);
-  const resumo = `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+  const c = calcCascataRecebimento(valorTotal, impostoPct, agentePct, corplinkPct, produto);
+  const nomeCorplink = produto==='Cartão de Crédito' ? 'Intermediação' : 'CorpLink';
+  const resumo = produto==='Cartão de Crédito'
+    ? `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+      Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto: <b>${fmtR$(c.lucroBrutoCBS)}</b><br>
+      − ${nomeCorplink} (${corplinkPct||0}% do Lucro Bruto): <b>${fmtR$(c.valorCorplink)}</b> — − Custo Operacional (${agentePct||0}% do Lucro Bruto): <b>${fmtR$(c.valorAgente)}</b> (os dois saem em paralelo, mesma base)<br>
+      Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
+      <div style="margin-top:4px;color:var(--text-faint)">A comissão da rede abaixo é calculada sobre o Lucro Líquido.</div>
+    </div>`
+    : `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
     Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto: <b>${fmtR$(c.lucroBrutoCBS)}</b><br>
-    − CorpLink (${corplinkPct||0}% do Lucro Bruto): <b>${fmtR$(c.valorCorplink)}</b> — sobra ${fmtR$(c.baseAgente)}<br>
+    − ${nomeCorplink} (${corplinkPct||0}% do Lucro Bruto): <b>${fmtR$(c.valorCorplink)}</b> — sobra ${fmtR$(c.baseAgente)}<br>
     − Custo Operacional (${agentePct||0}% do que sobrou): <b>${fmtR$(c.valorAgente)}</b> — Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
     <div style="margin-top:4px;color:var(--text-faint)">A comissão da rede abaixo é calculada sobre o Lucro Líquido.</div>
   </div>`;
@@ -2100,6 +2166,7 @@ function openRecebimentoModal(id){
     setVal('mr-corplink-pct', r.percentualCorplink!=null ? r.percentualCorplink : STORE.config.corplinkPct);
     setVal('mr-obs', r.observacoes);
     mrSplitRows = buildSplitRowsFromNegocio(r.negocioId, r.splits);
+    labelEDefaultsPorProduto(r.negocioId);
   } else {
     setVal('mr-negocio',''); setVal('mr-data', todayISO()); setVal('mr-ref',''); setVal('mr-valor','');
     setVal('mr-imposto-pct', STORE.config.impostoPct); setVal('mr-agente-pct', STORE.config.agentePct);
@@ -2121,7 +2188,8 @@ async function saveRecebimento(){
   if(!valorRecebido || valorRecebido<=0){ toast('Informe o valor recebido.','err'); return; }
   const id = val('mr-id');
   if(id && recebimentoTravado(recById(Number(id)))){ toast('Recebimento travado — não pode salvar. Use um Ajuste em Pagamentos.','err'); return; }
-  const c = calcCascataRecebimento(valorRecebido, percentualImposto, percentualAgente, percentualCorplink);
+  const produto = negById(negocioId)?.produto || 'Sicoob';
+  const c = calcCascataRecebimento(valorRecebido, percentualImposto, percentualAgente, percentualCorplink, produto);
   const payload = {
     negocio_id: negocioId, data, referencia: val('mr-ref').trim()||null, valor_recebido: valorRecebido,
     percentual_imposto: percentualImposto, valor_imposto: c.valorImposto,
