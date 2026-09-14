@@ -362,6 +362,7 @@ tbody tr:hover{background:var(--card);}
           <div class="panel-head">
             <h3>Recebimentos do banco</h3>
             <div class="toolbar">
+              <button class="btn btn-ghost btn-sm" onclick="recalcularRecebimentos()" title="Atualiza os recebimentos ainda sem repasse pago com a fórmula/config atual">🔄 Recalcular recebimentos</button>
               <button class="btn btn-primary btn-sm" onclick="openRecebimentoModal()">+ Lançar recebimento</button>
             </div>
           </div>
@@ -780,7 +781,10 @@ tbody tr:hover{background:var(--card);}
     <div class="modal-head"><h3 id="mr-titulo">Lançar recebimento</h3><button class="modal-close" onclick="closeModal('modal-recebimento')">✕</button></div>
     <input type="hidden" id="mr-id">
     <div class="form-row c3">
-      <div class="field"><label>Negócio *</label><select id="mr-negocio" onchange="onRecebimentoNegocioChange()"></select></div>
+      <div class="field"><label>Negócio *</label>
+        <input type="text" id="mr-negocio-busca" placeholder="Buscar cliente..." oninput="filtrarSelectNegocio()" style="margin-bottom:6px">
+        <select id="mr-negocio" onchange="onRecebimentoNegocioChange()"></select>
+      </div>
       <div class="field"><label>Data do recebimento *</label><input type="date" id="mr-data"></div>
       <div class="field"><label>Referência</label><input type="month" id="mr-ref"></div>
     </div>
@@ -2201,7 +2205,18 @@ let mrSplitRows = [];
 function fillNegocioSelect(){
   const sel = document.getElementById('mr-negocio');
   sel.innerHTML = `<option value="">Selecione o negócio...</option>` +
-    STORE.negocios.filter(n=>n.status!=='Cancelado').map(n=>`<option value="${n.id}">${esc(n.empresaCliente)}</option>`).join('');
+    STORE.negocios.filter(n=>n.status!=='Cancelado').map(n=>`<option value="${n.id}">${esc(n.empresaCliente)} (${esc(produtoLabel(n.produto))})</option>`).join('');
+}
+// filtro de busca acima do <select> de negócio — some com dezenas de clientes por produto, sem isso
+// vira uma lista impossível de rolar. Esconde as <option> que não batem, sem mudar o que o select vale.
+function filtrarSelectNegocio(){
+  const busca = (val('mr-negocio-busca')||'').toLowerCase();
+  const sel = document.getElementById('mr-negocio');
+  if(!sel) return;
+  [...sel.options].forEach(opt=>{
+    if(!opt.value){ opt.hidden = false; return; } // sempre mostra "Selecione o negócio..."
+    opt.hidden = !!busca && !opt.textContent.toLowerCase().includes(busca);
+  });
 }
 // monta as linhas de split sempre a partir do % ATUAL do negócio (fonte única de verdade — não dá pra editar % aqui no Recebimento).
 // Preserva status/data de pagamento/comprovante já lançados pra quem já estava no split (comparando por comissionadoId) —
@@ -2310,6 +2325,7 @@ function openRecebimentoModal(id){
     return;
   }
   fillNegocioSelect();
+  setVal('mr-negocio-busca','');
   document.getElementById('mr-titulo').textContent = id ? 'Editar recebimento' : 'Lançar recebimento';
   setVal('mr-id', id||'');
   if(id){
