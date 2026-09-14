@@ -1564,6 +1564,12 @@ function financeiroNegocioMes(negId, mes){
   const recs = STORE.recebimentos.filter(r=>r.negocioId===negId && (r.data||'').slice(0,7)===mes).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   return { qtd: recs.length, total: recs.reduce((a,r)=>a+Number(r.valorRecebido||0),0), ultimo: recs[0] };
 }
+// badge curtinho de qual negócio (Sicoob/Fly Pay) o card é — necessário sobretudo na fila de
+// "Pendentes de aprovação", que fica FORA do filtro de aba do Pipeline e mistura os dois.
+function produtoBadgeHtml(produto){
+  const cls = (produto||'Sicoob')==='Cartão de Crédito' ? 'green' : 'blue';
+  return `<span class="badge ${cls}" style="margin-bottom:5px">${esc(produtoLabel(produto))}</span>`;
+}
 function pipelineCardHtml(n, fin, colKey){
   let nav = '';
   if(colKey!=='Recebido'){
@@ -1574,6 +1580,7 @@ function pipelineCardHtml(n, fin, colKey){
     </div>`;
   }
   return `<div class="kanban-card">
+    ${produtoBadgeHtml(n.produto)}
     <div class="empresa">${esc(n.empresaCliente)}</div>
     <div class="originador">Originador(es): ${origemTexto(n)}</div>
     ${nav}
@@ -1630,6 +1637,7 @@ function renderPendentesAprovacao(){
     const incompletos = (n.comissionados||[]).map(oc=>comById(oc.comissionadoId)).filter(c=>c && !onboardingCompleto(c));
     return `
     <div class="kanban-card">
+      ${produtoBadgeHtml(n.produto)}
       <div class="empresa">${esc(n.empresaCliente)}</div>
       <div class="originador">Originador(es): ${origemTexto(n)}</div>
       ${incompletos.length ? `<div class="fin" style="color:var(--warn)">⚠ ${incompletos.map(c=>esc(c.nome)).join(', ')} com onboarding incompleto</div>` : ''}
