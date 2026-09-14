@@ -335,7 +335,7 @@ tbody tr:hover{background:var(--card);}
             </div>
           </div>
           <div class="tbl-wrap"><table id="tbl-negocios"><thead><tr>
-            <th>Empresa cliente</th><th>Início</th><th>Status</th><th>Rede envolvida</th><th></th>
+            <th>Empresa cliente</th><th>Produto</th><th>Início</th><th>Status</th><th>Rede envolvida</th><th></th>
           </tr></thead><tbody></tbody></table></div>
         </div>
       </div>
@@ -465,13 +465,21 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>% padrão da BIDATX em negócio novo</h3></div>
-          <p class="field-hint" style="margin-bottom:16px">Todo negócio novo já entra com a BIDATX na divisão, com essa % (sobre o Lucro Líquido) pré-preenchida — edite direto no negócio quando for exceção de negociação, sem precisar mudar o padrão aqui.</p>
+          <div class="panel-head"><h3>% padrão da BIDATX — produto Sicoob</h3></div>
+          <p class="field-hint" style="margin-bottom:16px">Todo negócio novo de Sicoob já entra com a BIDATX na divisão, com essa % (sobre o Lucro Líquido) pré-preenchida — edite direto no negócio quando for exceção de negociação, sem precisar mudar o padrão aqui. Não varia por quem vendeu (o corte do Vick aqui já sai pelo Custo Operacional).</p>
           <div class="field">
             <label>% padrão da BIDATX</label>
             <input type="number" step="0.01" min="0" max="100" id="cfg-bidatx-pct">
           </div>
           <button class="btn btn-primary btn-sm" onclick="saveBidatxPct()">Salvar</button>
+        </div>
+
+        <div class="panel" style="max-width:520px">
+          <div class="panel-head"><h3>% padrão da BIDATX — produto Cartão de Crédito</h3></div>
+          <p class="field-hint" style="margin-bottom:16px">Aqui a % sugerida no negócio varia conforme o Vinicius está vendendo direto ou não (sociedade Bruno/Diego/Eduardo/BIDATX) — o sistema já detecta isso sozinho pelo vínculo de sócio do comissionado, sempre editável no negócio pra exceção.</p>
+          <div class="field"><label>% quando alguém da rede vende (normal)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-bidatx-normal"></div>
+          <div class="field"><label>% quando o Vinicius vende direto</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-bidatx-vick"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveCartaoBidatxPct()">Salvar</button>
         </div>
 
         <div class="panel" style="max-width:520px">
@@ -573,6 +581,15 @@ tbody tr:hover{background:var(--card);}
         <select id="mn-status"><option>Ativo</option><option>Encerrado</option><option>Cancelado</option></select>
       </div>
       <div class="field"><label>Observações</label><input type="text" id="mn-obs" placeholder="Opcional"></div>
+    </div>
+
+    <div class="field">
+      <label>Produto</label>
+      <select id="mn-produto" onchange="sugerirPercentualBidatx()">
+        <option value="Sicoob">Sicoob</option>
+        <option value="Cartão de Crédito">Cartão de Crédito</option>
+      </select>
+      <div class="field-hint">Muda a % sugerida pra BIDATX na divisão abaixo — ajuste automático, sempre editável se for exceção.</div>
     </div>
 
     <div class="field">
@@ -789,7 +806,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ================= DADOS (espelho local do Supabase, populado por refreshStore()) ================= */
-let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, bidatxPct:70, mesFechadoAte:null, ndaTemplatePath:null } };
+let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, bidatxPct:70, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, mesFechadoAte:null, ndaTemplatePath:null } };
 let currentUser = null; // { email, nome, posicao }
 
 async function refreshStore(){
@@ -823,6 +840,7 @@ async function refreshStore(){
   });
   STORE.negocios = (negociosR.data||[]).map(n=>({
     id:n.id, empresaCliente:n.empresa_cliente, razaoSocial:n.razao_social, cnpj:n.cnpj, data:n.data_inicio, status:n.status,
+    produto:n.produto||'Sicoob',
     situacaoSicoob:n.situacao_sicoob||'Indicado', aprovadoPor:n.aprovado_por, aprovadoEm:n.aprovado_em,
     observacoes:n.observacoes, dataCadastro:n.created_at, comissionados: ncByNeg[n.id]||[]
   }));
@@ -835,8 +853,11 @@ async function refreshStore(){
     });
   });
   STORE.config = configR.data
-    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, bidatxPct: configR.data.bidatx_pct!=null?Number(configR.data.bidatx_pct):70, mesFechadoAte: configR.data.mes_fechado_ate||null, ndaTemplatePath: configR.data.nda_template_path||null }
-    : { impostoPct:0, agentePct:50, corplinkPct:20, bidatxPct:70, mesFechadoAte:null, ndaTemplatePath:null };
+    ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, bidatxPct: configR.data.bidatx_pct!=null?Number(configR.data.bidatx_pct):70,
+        cartaoBidatxPctNormal: configR.data.cartao_bidatx_pct_normal!=null?Number(configR.data.cartao_bidatx_pct_normal):72.5,
+        cartaoBidatxPctVick: configR.data.cartao_bidatx_pct_vick!=null?Number(configR.data.cartao_bidatx_pct_vick):22.5,
+        mesFechadoAte: configR.data.mes_fechado_ate||null, ndaTemplatePath: configR.data.nda_template_path||null }
+    : { impostoPct:0, agentePct:50, corplinkPct:20, bidatxPct:70, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, mesFechadoAte:null, ndaTemplatePath:null };
 
   STORE.recebimentos = (recebimentosR.data||[]).map(r=>({
     id:r.id, negocioId:r.negocio_id, data:r.data, referencia:r.referencia,
@@ -1026,6 +1047,8 @@ function renderConfig(){
   document.getElementById('cfg-imposto-pct').value = STORE.config.impostoPct;
   document.getElementById('cfg-corplink-pct').value = STORE.config.corplinkPct;
   document.getElementById('cfg-bidatx-pct').value = STORE.config.bidatxPct;
+  document.getElementById('cfg-cartao-bidatx-normal').value = STORE.config.cartaoBidatxPctNormal;
+  document.getElementById('cfg-cartao-bidatx-vick').value = STORE.config.cartaoBidatxPctVick;
   updateConfigPreview();
   renderUsuarios();
   renderRetiradas();
@@ -1039,6 +1062,15 @@ async function saveBidatxPct(){
   const { error } = await sbClient.from('cbs_config').update({ bidatx_pct: pct }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
   toast('% padrão da BIDATX salvo.');
+  await refreshStore(); renderAll();
+}
+async function saveCartaoBidatxPct(){
+  const normal = Number(val('cfg-cartao-bidatx-normal'));
+  const vick = Number(val('cfg-cartao-bidatx-vick'));
+  if(isNaN(normal) || normal<0 || normal>100 || isNaN(vick) || vick<0 || vick>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
+  const { error } = await sbClient.from('cbs_config').update({ cartao_bidatx_pct_normal: normal, cartao_bidatx_pct_vick: vick }).eq('id',1);
+  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
+  toast('% padrão da BIDATX pro Cartão de Crédito salvo.');
   await refreshStore(); renderAll();
 }
 function renderNdaStatus(){
@@ -1439,6 +1471,7 @@ function renderNegocios(){
   tb.innerHTML = list.length ? list.map(n=>`
     <tr>
       <td class="name-cell"><b>${esc(n.empresaCliente)}</b>${n.cnpj?`<small>${esc(n.cnpj)}</small>`:''}${!n.aprovadoPor?`<small style="color:var(--warn)">⏳ Aguardando aprovação</small>`:''}</td>
+      <td>${esc(n.produto||'Sicoob')}</td>
       <td>${fmtData(n.data)}</td>
       <td>${statusBadge(n.status)}</td>
       <td>${(n.comissionados||[]).map(c=>`${esc(comById(c.comissionadoId)?.nome||'?')} (${c.percentual}%)${c.principal?' ★':''}`).join(', ')||'—'}</td>
@@ -1446,7 +1479,7 @@ function renderNegocios(){
         <button class="icon-btn" onclick="openNegocioModal(${n.id})" title="Editar">✎</button>
         <button class="icon-btn" onclick="deleteNegocio(${n.id})" title="Excluir">🗑</button>
       </div></td>
-    </tr>`).join('') : `<tr class="empty-row"><td colspan="5">Nenhum negócio encontrado.</td></tr>`;
+    </tr>`).join('') : `<tr class="empty-row"><td colspan="6">Nenhum negócio encontrado.</td></tr>`;
 }
 
 /* ================= PIPELINE (situação do negócio com o Sicoob) ================= */
@@ -1666,7 +1699,7 @@ function addSplitRow(pref){
   mnSplitRows.push(pref || {comissionadoId:'', percentual:'', principal: mnSplitRows.length===0});
   renderSplitBox();
 }
-function removeSplitRow(idx){ mnSplitRows.splice(idx,1); renderSplitBox(); }
+function removeSplitRow(idx){ mnSplitRows.splice(idx,1); renderSplitBox(); sugerirPercentualBidatx(); }
 function renderSplitBox(){
   const box = document.getElementById('mn-split-box');
   if(!mnSplitRows.length){
@@ -1674,7 +1707,7 @@ function renderSplitBox(){
   } else {
     box.innerHTML = mnSplitRows.map((r,i)=>`
       <div class="split-row">
-        <select onchange="mnSplitRows[${i}].comissionadoId=Number(this.value)">
+        <select onchange="mnSplitRows[${i}].comissionadoId=Number(this.value); sugerirPercentualBidatx()">
           <option value="">Selecione...</option>
           ${STORE.comissionados.map(c=>`<option value="${c.id}" ${r.comissionadoId===c.id?'selected':''}>${esc(c.nome)}</option>`).join('')}
         </select>
@@ -1692,6 +1725,9 @@ function updateSplitTotal(){
   el.style.color = t>100 ? '#fca5a5' : (t===100?'#10b981':'');
 }
 
+// e-mail do Vinicius — usado pra detectar "o Vick vendeu direto" (mesmo sinal que já esconde o
+// nome do cliente pra BIDATX Correspondência, ver cbs_bidatx_negocios()/cbs_bidatx_recebimentos()).
+const VICK_EMAIL = 'vickcampanario@gmail.com';
 function openNegocioModal(id){
   document.getElementById('mn-titulo').textContent = id ? 'Editar negócio' : 'Novo negócio';
   document.getElementById('mn-aprovacao-hint').style.display = id ? 'none' : 'block';
@@ -1700,12 +1736,12 @@ function openNegocioModal(id){
     const n = negById(id);
     setVal('mn-empresa', n.empresaCliente); setVal('mn-razao-social', n.razaoSocial); setVal('mn-cnpj', n.cnpj);
     setVal('mn-data', n.data); setVal('mn-status', n.status); setVal('mn-obs', n.observacoes);
+    setVal('mn-produto', n.produto || 'Sicoob');
     mnSplitRows = (n.comissionados||[]).map(c=>({...c}));
   } else {
     ['mn-empresa','mn-razao-social','mn-cnpj','mn-obs'].forEach(id=>setVal(id,''));
-    setVal('mn-data', todayISO()); setVal('mn-status','Ativo');
-    // negócio novo já entra com a BIDATX na divisão, % padrão de Configurações — sociedade
-    // Bruno/Diego/Eduardo (2026-08-27). Editável/removível igual qualquer outra linha da divisão.
+    setVal('mn-data', todayISO()); setVal('mn-status','Ativo'); setVal('mn-produto','Sicoob');
+    // negócio novo já entra com a BIDATX na divisão — % sugerida logo abaixo, conforme produto.
     const bidatx = STORE.comissionados.find(c=>(c.nome||'').toLowerCase().includes('bidatx'));
     mnSplitRows = bidatx ? [{ comissionadoId: bidatx.id, percentual: STORE.config.bidatxPct, principal: false }] : [];
   }
@@ -1713,7 +1749,25 @@ function openNegocioModal(id){
     toast('Cadastre ao menos um comissionado na aba Rede antes de montar a divisão.', 'err');
   }
   renderSplitBox();
+  sugerirPercentualBidatx();
   document.getElementById('modal-negocio').classList.add('open');
+}
+// sugere a % da BIDATX na divisão conforme o produto e se o Vick está vendendo direto (sociedade
+// Bruno/Diego/Eduardo/BIDATX, 2026-09-14) — sempre editável depois, é só um ponto de partida.
+// Sicoob: % fixa (bidatxPct de Config), não varia por quem vendeu — o corte do Vick ali já sai pelo
+// Custo Operacional. Cartão de Crédito: varia bastante conforme o Vick vendeu ou não (ver memória).
+function sugerirPercentualBidatx(){
+  const bidatx = STORE.comissionados.find(c=>(c.nome||'').toLowerCase().includes('bidatx'));
+  if(!bidatx) return;
+  const idx = mnSplitRows.findIndex(r=>Number(r.comissionadoId)===bidatx.id);
+  if(idx===-1) return; // BIDATX não está na divisão desse negócio — não mexe, decisão do usuário
+  const produto = val('mn-produto');
+  const vickVendeu = mnSplitRows.some(r=>r.comissionadoId && comById(Number(r.comissionadoId))?.socioVinculado===VICK_EMAIL);
+  const sugerido = produto==='Cartão de Crédito'
+    ? (vickVendeu ? STORE.config.cartaoBidatxPctVick : STORE.config.cartaoBidatxPctNormal)
+    : STORE.config.bidatxPct;
+  mnSplitRows[idx].percentual = sugerido;
+  renderSplitBox();
 }
 async function saveNegocio(){
   const empresa = val('mn-empresa').trim();
@@ -1727,7 +1781,8 @@ async function saveNegocio(){
   const id = val('mn-id');
   const payload = {
     empresa_cliente: empresa, razao_social: val('mn-razao-social').trim()||null, cnpj: val('mn-cnpj').trim()||null,
-    data_inicio: val('mn-data')||null, status: val('mn-status'), observacoes: val('mn-obs').trim()||null
+    data_inicio: val('mn-data')||null, status: val('mn-status'), observacoes: val('mn-obs').trim()||null,
+    produto: val('mn-produto')||'Sicoob'
   };
   const btn = document.getElementById('btn-save-negocio'); btn.disabled = true;
   let negocioId;

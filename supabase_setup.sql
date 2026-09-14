@@ -142,6 +142,13 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 alter table cbs_negocios add column if not exists aprovado_por text references cbs_usuarios(email) on delete set null;
 alter table cbs_negocios add column if not exists aprovado_em timestamptz;
+-- segundo produto (2026-09-14): operadora de cartão de crédito, além do Sicoob (correspondência
+-- bancária) — cascata de cálculo e % da BIDATX são bem diferentes entre os dois, ver memória do
+-- projeto. Todo negócio já existente (antes desta coluna) fica como 'Sicoob' por padrão.
+alter table cbs_negocios add column if not exists produto text not null default 'Sicoob';
+do $$ begin
+  alter table cbs_negocios add constraint cbs_negocios_produto_check check (produto in ('Sicoob','Cartão de Crédito'));
+exception when duplicate_object then null; end $$;
 -- migração ÚNICA: só passa a exigir aprovação pra negócio NOVO — tudo que já existia antes dessa
 -- coluna existir fica retroativamente aprovado, pra não travar nada em andamento. Usa uma data FIXA
 -- como corte (não "now()") — assim é seguro rodar esse arquivo de novo no futuro sem aprovar sozinho
@@ -301,6 +308,14 @@ alter table cbs_config add column if not exists nda_template_path text;
 -- em 2026-09-02, o default original (38) tinha sido um erro meu (confundi valor em R$ com %).
 alter table cbs_config add column if not exists bidatx_pct numeric(6,2) not null default 70;
 update cbs_config set bidatx_pct = 70 where id = 1 and bidatx_pct = 38;
+
+-- % padrão da BIDATX pro produto Cartão de Crédito (2026-09-14) — diferente do Sicoob porque aqui a
+-- % de fato VARIA conforme quem vendeu: se foi o Vinicius vendendo direto, a comissão de venda dele
+-- (50%) e a fatia dele na sociedade (7,5%) ficam retidas no CBS, e só os outros 3 sócios (22,5%) vão
+-- pra BIDATX. Se não foi o Vinicius, vai tudo (comissão + pool dos 3) = 72,5%. O modal de Negócio já
+-- sugere a % certa sozinho, olhando se o Vinicius está vinculado como comissionado do negócio.
+alter table cbs_config add column if not exists cartao_bidatx_pct_normal numeric(6,2) not null default 72.5;
+alter table cbs_config add column if not exists cartao_bidatx_pct_vick numeric(6,2) not null default 22.5;
 
 alter table cbs_config enable row level security;
 drop policy if exists "cbs_config - só autorizados" on cbs_config;
