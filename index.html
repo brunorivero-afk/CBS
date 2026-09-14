@@ -1935,12 +1935,29 @@ function renderRede(){
     const negs = new Set(meus.map(s=>s.negocioId)).size;
     const recebido = meus.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0);
     const pendente = meus.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0);
+    // detalhamento por produto (Sicoob/Fly Pay) — só aparece quando o comissionado de fato atua nos
+    // dois negócios (ex: BIDATX); pra quem só atua num só, o número de cima já basta, sem poluir a
+    // tabela. Puramente visual — não cria nenhum comissionado novo nem mexe no banco.
+    const produtos = [...new Set(meus.map(s=>s.produto||'Sicoob'))];
+    let breakdown = '';
+    if(produtos.length > 1){
+      const porProduto = produtos.map(p=>{
+        const doProduto = meus.filter(s=>(s.produto||'Sicoob')===p);
+        return {
+          produto: p,
+          negs: new Set(doProduto.map(s=>s.negocioId)).size,
+          recebido: doProduto.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0),
+          pendente: doProduto.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0)
+        };
+      });
+      breakdown = porProduto.map(p=>`<small style="display:block">${esc(p.produto)}: ${p.negs} neg. · ${fmtR$(p.recebido)} recebido · ${fmtR$(p.pendente)} pendente</small>`).join('');
+    }
     const cadeia = cadeiaIndicacao(c);
     const indicados = STORE.comissionados.filter(x=>x.indicadoPor===c.id);
     const socioVinc = c.socioVinculado ? STORE.usuarios.find(u=>u.email===c.socioVinculado) : null;
     const totalAjustes = ajustesDoComissionado(c.id).reduce((a,j)=>a+Number(j.valor||0),0);
     return `<tr>
-      <td class="name-cell"><b>${esc(c.nome)}</b>${!onboardingCompleto(c)?`<small style="color:var(--warn)" title="Falta: ${esc(onboardingPendentesTexto(c))}">⚠ Onboarding pendente (${esc(onboardingPendentesTexto(c))})</small>`:''}${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}</td>
+      <td class="name-cell"><b>${esc(c.nome)}</b>${!onboardingCompleto(c)?`<small style="color:var(--warn)" title="Falta: ${esc(onboardingPendentesTexto(c))}">⚠ Onboarding pendente (${esc(onboardingPendentesTexto(c))})</small>`:''}${cadeia.length?`<small>↳ indicado por ${cadeia.map(p=>esc(p.nome)).join(' ↳ indicado por ')}</small>`:''}${socioVinc?`<small>🔗 vinculado ao sócio ${esc(socioVinc.nome)}</small>`:''}${indicados.length?`<small>${indicados.length} indicado${indicados.length>1?'s':''}: ${indicados.map(i=>esc(i.nome)).join(', ')}</small>`:''}${totalAjustes>0?`<small style="color:var(--danger)">Ajustes a descontar: ${fmtR$(totalAjustes)}</small>`:''}${breakdown}</td>
       <td>${esc(c.telefone||c.email||'—')}</td>
       <td>${statusBadge(c.status)}</td>
       <td>${negs}</td>
