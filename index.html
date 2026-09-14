@@ -2200,17 +2200,19 @@ function onRecebimentoNegocioChange(){
 // cascata do Sicoob: Recebido -> Imposto -> Lucro Bruto -> CorpLink (sobre o Lucro Bruto) -> Custo
 // Operacional (sobre o que SOBRA depois do CorpLink, não sobre o Lucro Bruto original) -> Lucro
 // Líquido. É SEQUENCIAL, uma etapa consome a base da próxima.
-// cascata do Cartão de Crédito (2026-09-14): Intermediação e Custo Operacional saem os DOIS direto
-// do Lucro Bruto (mesma base), em PARALELO — não um sequencial ao outro como no Sicoob.
-// Nos dois casos, a comissão da rede é um % calculado SOBRE O LUCRO LÍQUIDO (não sobre o Lucro Bruto).
-// Cada etapa é arredondada em centavos (round2) pra não acumular diferença de fração de centavo.
+// cascata do Cartão de Crédito, corrigida em 2026-09-15 (a versão de 09-14 estava errada — criava um
+// "Lucro Líquido" intermediário reduzido, como se Intermediação/Custo Operacional saíssem ANTES da
+// comissão/BIDATX; não é assim). Aqui não tem etapa intermediária nenhuma: o que sobra do imposto
+// (Lucro Bruto) já É o Lucro Líquido — 100% de referência — dividido de uma vez em 4 fatias irmãs que
+// somam 100% (10% Intermediação + 10% Custo Operacional + 50% comissão + 30% BIDATX, por exemplo):
+// Intermediação e Custo Operacional são só bucket informativo do CBS, não reduzem a base de ninguém.
 function calcCascataRecebimento(valorRecebido, impostoPct, agentePct, corplinkPct, produto='Sicoob'){
   const valorImposto = round2(valorRecebido * impostoPct / 100);
   const lucroBrutoCBS = round2(valorRecebido - valorImposto);
   if(produto==='Cartão de Crédito'){
     const valorCorplink = round2(lucroBrutoCBS * (Number(corplinkPct)||0) / 100); // "Intermediação"
     const valorAgente = round2(lucroBrutoCBS * (Number(agentePct)||0) / 100); // Custo Operacional
-    const valorLiquido = round2(lucroBrutoCBS - valorCorplink - valorAgente);
+    const valorLiquido = lucroBrutoCBS; // sem redução — comissão/BIDATX são fatia do mesmo 100%, não do que sobra
     return { valorImposto, lucroBrutoCBS, valorCorplink, baseAgente: lucroBrutoCBS, valorAgente, valorLiquido };
   }
   const valorCorplink = round2(lucroBrutoCBS * (Number(corplinkPct)||0) / 100);
@@ -2231,10 +2233,9 @@ function renderRecebimentoSplitPreview(){
   const nomeCorplink = produto==='Cartão de Crédito' ? 'Intermediação' : 'CorpLink';
   const resumo = produto==='Cartão de Crédito'
     ? `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
-      Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto: <b>${fmtR$(c.lucroBrutoCBS)}</b><br>
-      − ${nomeCorplink} (${corplinkPct||0}% do Lucro Bruto): <b>${fmtR$(c.valorCorplink)}</b> — − Custo Operacional (${agentePct||0}% do Lucro Bruto): <b>${fmtR$(c.valorAgente)}</b> (os dois saem em paralelo, mesma base)<br>
-      Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
-      <div style="margin-top:4px;color:var(--text-faint)">A comissão da rede abaixo é calculada sobre o Lucro Líquido.</div>
+      Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b><br>
+      ${nomeCorplink} (${corplinkPct||0}%): <b>${fmtR$(c.valorCorplink)}</b> — Custo Operacional (${agentePct||0}%): <b>${fmtR$(c.valorAgente)}</b>
+      <div style="margin-top:4px;color:var(--text-faint)">Intermediação, Custo Operacional e a comissão da rede abaixo são todas fatias do mesmo Lucro Líquido — uma não reduz a base da outra.</div>
     </div>`
     : `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
     Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto: <b>${fmtR$(c.lucroBrutoCBS)}</b><br>
