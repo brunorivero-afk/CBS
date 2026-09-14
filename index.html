@@ -621,6 +621,7 @@ tbody tr:hover{background:var(--card);}
       <div class="split-box" id="mn-split-box"></div>
       <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addSplitRow()">+ Adicionar comissionado</button>
       <div class="split-sum">Total configurado: <b id="mn-split-total">0%</b></div>
+      <div class="field-hint" id="mn-split-hint" style="margin-top:4px"></div>
     </div>
 
     <div class="modal-foot">
@@ -1826,11 +1827,24 @@ function renderSplitBox(){
   }
   updateSplitTotal();
 }
+// teto de verdade da divisão da rede: no Sicoob é 100% (Intermediação/Custo Operacional já reduzem a
+// base antes de chegar aqui); no Fly Pay, Intermediação e Custo Operacional são fatias irmãs do MESMO
+// Lucro Líquido que a rede divide — então o que sobra pra rede é sempre 100% menos essas duas.
+function tetoSplitRede(){
+  const produto = val('mn-produto');
+  if(produto!=='Cartão de Crédito') return 100;
+  return round2(100 - (Number(STORE.config.cartaoIntermediacaoPct)||0) - (Number(STORE.config.cartaoCustoOperacionalPct)||0));
+}
 function updateSplitTotal(){
   const t = mnSplitRows.reduce((a,r)=>a+(Number(r.percentual)||0),0);
+  const teto = tetoSplitRede();
   const el = document.getElementById('mn-split-total');
-  el.textContent = t.toFixed(2).replace(/\.00$/,'')+'%';
-  el.style.color = t>100 ? '#fca5a5' : (t===100?'#10b981':'');
+  el.textContent = `${t.toFixed(2).replace(/\.00$/,'')}% de até ${teto}%`;
+  el.style.color = t>teto ? '#fca5a5' : (t===teto?'#10b981':'');
+  const hint = document.getElementById('mn-split-hint');
+  if(hint) hint.textContent = teto<100
+    ? `Fly Pay reserva ${round2(100-teto)}% pra Intermediação + Custo Operacional antes da divisão da rede — por isso o máximo aqui é ${teto}%, não 100%.`
+    : '';
 }
 
 // e-mail do Vinicius — usado pra detectar "o Vick vendeu direto" (mesmo sinal que já esconde o
@@ -1887,9 +1901,15 @@ async function saveNegocio(){
   const splits = mnSplitRows.filter(r=>r.comissionadoId).map(r=>({
     comissionadoId:Number(r.comissionadoId), percentual:Number(r.percentual)||0, principal:!!r.principal
   }));
-  // trava de rateio: a soma da rede não pode passar de 100% do Lucro Líquido CBS
+  // trava de rateio: a soma da rede não pode passar do teto do produto — 100% no Sicoob, ou 100% menos
+  // Intermediação+Custo Operacional no Fly Pay (essas duas são fatia do mesmo Lucro Líquido, não sobra
+  // pra rede dividir o que já foi reservado pra elas).
   const somaPct = round2(splits.reduce((a,r)=>a+r.percentual,0));
-  if(somaPct > 100){ toast(`A soma dos percentuais da rede (${somaPct}%) não pode passar de 100%. Ajuste antes de salvar.`,'err'); return; }
+  const teto = tetoSplitRede();
+  if(somaPct > teto){
+    const motivo = teto<100 ? ` (Fly Pay reserva ${round2(100-teto)}% pra Intermediação + Custo Operacional)` : '';
+    toast(`A soma dos percentuais da rede (${somaPct}%) não pode passar de ${teto}%${motivo}. Ajuste antes de salvar.`,'err'); return;
+  }
   const id = val('mn-id');
   const payload = {
     empresa_cliente: empresa, razao_social: val('mn-razao-social').trim()||null, cnpj: val('mn-cnpj').trim()||null,
