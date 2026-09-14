@@ -332,6 +332,9 @@ tbody tr:hover{background:var(--card);}
                 <option value="Encerrado">Encerrado</option>
                 <option value="Cancelado">Cancelado</option>
               </select>
+              <input type="date" id="neg-de" onchange="renderNegocios()" title="Início de">
+              <span style="color:var(--text-faint);font-size:12px">até</span>
+              <input type="date" id="neg-ate" onchange="renderNegocios()" title="Início até">
             </div>
           </div>
           <div class="tbl-wrap"><table id="tbl-negocios"><thead><tr>
@@ -369,8 +372,16 @@ tbody tr:hover{background:var(--card);}
             </div>
           </div>
           <p class="field-hint" style="margin-bottom:14px">Cada lançamento representa um valor recebido do banco referente a um negócio. O sistema divide automaticamente entre os comissionados conforme o % configurado no negócio.</p>
+          <div class="toolbar" style="margin-bottom:14px">
+            <select id="rec-filtro-negocio" onchange="renderRecebimentos()" style="min-width:220px">
+              <option value="">Todos os negócios</option>
+            </select>
+            <input type="date" id="rec-de" onchange="renderRecebimentos()" title="Data de">
+            <span style="color:var(--text-faint);font-size:12px">até</span>
+            <input type="date" id="rec-ate" onchange="renderRecebimentos()" title="Data até">
+          </div>
           <div class="tbl-wrap"><table id="tbl-recebimentos"><thead><tr>
-            <th>Data</th><th>Empresa</th><th>Referência</th><th>Valor recebido</th><th>CorpLink</th><th>Custo Operacional</th><th>Repasse à rede</th><th></th>
+            <th>Data</th><th>Empresa</th><th>Produto</th><th>Referência</th><th>Valor recebido</th><th>CorpLink</th><th>Custo Operacional</th><th>Repasse à rede</th><th></th>
           </tr></thead><tbody></tbody></table></div>
         </div>
       </div>
@@ -407,10 +418,13 @@ tbody tr:hover{background:var(--card);}
                 <option value="Pago">Pagos</option>
                 <option value="">Todos</option>
               </select>
+              <select id="pag-filtro-negocio" onchange="renderPagamentos()" style="min-width:220px">
+                <option value="">Todos os negócios</option>
+              </select>
             </div>
           </div>
           <div class="tbl-wrap"><table id="tbl-pagamentos"><thead><tr>
-            <th>Comissionado</th><th>Empresa</th><th>Recebimento</th><th>Valor</th><th>Status</th><th>Data pagto</th><th></th>
+            <th>Comissionado</th><th>Negócio</th><th>Recebimento</th><th>Valor</th><th>Status</th><th>Data pagto</th><th></th>
           </tr></thead><tbody></tbody></table></div>
         </div>
 
@@ -1378,7 +1392,7 @@ function allSplits(){
         recebimentoId:r.id, negocioId:r.negocioId, comissionadoId:s.comissionadoId,
         percentual:s.percentual, valor:s.valor, statusPagamento:s.statusPagamento,
         dataPagamento:s.dataPagamento, dataRecebimento:r.data, referencia:r.referencia,
-        valorRecebido:r.valorRecebido, empresa: neg?neg.empresaCliente:'—', comprovantePath:s.comprovantePath
+        valorRecebido:r.valorRecebido, empresa: neg?neg.empresaCliente:'—', produto: neg?.produto||'Sicoob', comprovantePath:s.comprovantePath
       });
     });
   });
@@ -1488,9 +1502,13 @@ function statusBadge(status){
 function renderNegocios(){
   const busca = (document.getElementById('neg-busca')?.value||'').toLowerCase();
   const filtro = document.getElementById('neg-filtro-status')?.value||'';
+  const de = document.getElementById('neg-de')?.value||'';
+  const ate = document.getElementById('neg-ate')?.value||'';
   let list = [...STORE.negocios];
   if(busca) list = list.filter(n=> (n.empresaCliente||'').toLowerCase().includes(busca));
   if(filtro) list = list.filter(n=>n.status===filtro);
+  if(de) list = list.filter(n=>(n.data||'')>=de);
+  if(ate) list = list.filter(n=>(n.data||'')<=ate);
   list.sort((a,b)=>(b.dataCadastro||'').localeCompare(a.dataCadastro||''));
 
   const tb = document.querySelector('#tbl-negocios tbody');
@@ -2019,9 +2037,26 @@ async function deleteComissionado(id){
 }
 
 /* ================= RECEBIMENTOS ================= */
+function fillRecebimentoFiltroNegocio(){
+  const sel = document.getElementById('rec-filtro-negocio');
+  if(!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = `<option value="">Todos os negócios</option>` +
+    [...STORE.negocios].sort((a,b)=>(a.empresaCliente||'').localeCompare(b.empresaCliente||''))
+      .map(n=>`<option value="${n.id}">${esc(n.empresaCliente)} (${esc(n.produto||'Sicoob')})</option>`).join('');
+  sel.value = atual;
+}
 function renderRecebimentos(){
+  fillRecebimentoFiltroNegocio();
+  const filtroNeg = document.getElementById('rec-filtro-negocio')?.value||'';
+  const de = document.getElementById('rec-de')?.value||'';
+  const ate = document.getElementById('rec-ate')?.value||'';
   const tb = document.querySelector('#tbl-recebimentos tbody');
-  const list = [...STORE.recebimentos].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  let list = [...STORE.recebimentos];
+  if(filtroNeg) list = list.filter(r=>String(r.negocioId)===filtroNeg);
+  if(de) list = list.filter(r=>(r.data||'')>=de);
+  if(ate) list = list.filter(r=>(r.data||'')<=ate);
+  list.sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   tb.innerHTML = list.length ? list.map(r=>{
     const n = negById(r.negocioId);
     const repasse = (r.splits||[]).reduce((a,s)=>a+Number(s.valor||0),0);
@@ -2029,6 +2064,7 @@ function renderRecebimentos(){
     return `<tr>
       <td>${fmtData(r.data)}</td>
       <td>${esc(n?n.empresaCliente:'—')}</td>
+      <td>${esc(n?.produto||'Sicoob')}</td>
       <td>${esc(fmtRef(r.referencia))||'—'}</td>
       <td>${fmtR$(r.valorRecebido)}</td>
       <td>${fmtR$(r.valorCorplink)}</td>
@@ -2041,7 +2077,7 @@ function renderRecebimentos(){
              <button class="icon-btn" onclick="deleteRecebimento(${r.id})" title="Excluir">🗑</button>`}
       </div></td>
     </tr>`;
-  }).join('') : `<tr class="empty-row"><td colspan="7">Nenhum recebimento lançado ainda.</td></tr>`;
+  }).join('') : `<tr class="empty-row"><td colspan="8">Nenhum recebimento encontrado para este filtro.</td></tr>`;
 }
 
 let mrSplitRows = [];
@@ -2236,10 +2272,22 @@ async function deleteRecebimento(id){
 // saiu da conta pro lado da BIDATX — quem recebe de fato (Lucilo, Bruno, Diego, Eduardo) é resolvido
 // depois, na BIDATX Correspondência. Rótulo diferente pra não parecer que já chegou em alguém.
 function ehBidatx(comissionadoId){ return (comById(comissionadoId)?.nome||'').toLowerCase().includes('bidatx'); }
+function fillPagamentoFiltroNegocio(){
+  const sel = document.getElementById('pag-filtro-negocio');
+  if(!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = `<option value="">Todos os negócios</option>` +
+    [...STORE.negocios].sort((a,b)=>(a.empresaCliente||'').localeCompare(b.empresaCliente||''))
+      .map(n=>`<option value="${n.id}">${esc(n.empresaCliente)} (${esc(n.produto||'Sicoob')})</option>`).join('');
+  sel.value = atual;
+}
 function renderPagamentos(){
+  fillPagamentoFiltroNegocio();
   const filtro = document.getElementById('pag-filtro')?.value ?? 'Pendente';
+  const filtroNeg = document.getElementById('pag-filtro-negocio')?.value||'';
   let splits = allSplits();
   if(filtro) splits = splits.filter(s=>s.statusPagamento===filtro);
+  if(filtroNeg) splits = splits.filter(s=>String(s.negocioId)===filtroNeg);
   splits.sort((a,b)=>(a.dataRecebimento||'').localeCompare(b.dataRecebimento||''));
   const tb = document.querySelector('#tbl-pagamentos tbody');
   tb.innerHTML = splits.length ? splits.map(s=>{
@@ -2248,7 +2296,7 @@ function renderPagamentos(){
     return `
     <tr>
       <td>${esc(comById(s.comissionadoId)?.nome||'?')}</td>
-      <td>${esc(s.empresa)}</td>
+      <td>${esc(s.empresa)}<br><small style="color:var(--text-faint)">${esc(s.produto)}</small></td>
       <td>${fmtData(s.dataRecebimento)}${s.referencia?` <small style="color:var(--text-faint)">(${esc(fmtRef(s.referencia))})</small>`:''}</td>
       <td>${fmtR$(s.valor)}</td>
       <td>${s.statusPagamento==='Pago' ? `<span class="badge green">${rotuloPago}</span>` : statusBadge(s.statusPagamento)}</td>
