@@ -142,6 +142,10 @@ a{color:inherit;}
 .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
 .panel-head h3{font-size:15.5px;font-weight:700;}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:0;}
+.tabs .tab{padding:8px 16px;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;color:var(--text-dim);cursor:pointer;border:1px solid transparent;border-bottom:none;}
+.tabs .tab:hover{color:var(--text);}
+.tabs .tab.active{color:var(--accent);background:var(--accent-bg);border-color:var(--border);}
 .toolbar input,.toolbar select{background:var(--card);border:1px solid var(--border);border-radius:8px;
   padding:8px 10px;font-size:13px;color:var(--text);outline:none;}
 .toolbar input:focus,.toolbar select:focus{border-color:var(--accent);}
@@ -306,6 +310,11 @@ tbody tr:hover{background:var(--card);}
 
       <!-- NEGOCIOS -->
       <div class="view" id="view-negocios">
+        <div class="tabs" id="negocios-produto-tabs" style="margin-bottom:14px">
+          <div class="tab active" data-produto="" onclick="setNegocioProdutoFiltro('')">Todos</div>
+          <div class="tab" data-produto="Sicoob" onclick="setNegocioProdutoFiltro('Sicoob')">Sicoob</div>
+          <div class="tab" data-produto="Cartão de Crédito" onclick="setNegocioProdutoFiltro('Cartão de Crédito')">Fly Pay</div>
+        </div>
         <div class="panel">
           <div class="panel-head">
             <h3>Negócios / relacionamentos</h3>
@@ -1530,12 +1539,21 @@ function statusBadge(status){
 }
 
 /* ================= NEGOCIOS ================= */
+// filtro por negócio de verdade (Sicoob/Fly Pay — só existem esses 2), separado do resto porque não é
+// um campo de formulário: é aba, igual ao Pipeline, pra ficar óbvio olhando qual dos dois está ativo.
+let negocioProdutoFiltro = '';
+function setNegocioProdutoFiltro(produto){
+  negocioProdutoFiltro = produto;
+  document.querySelectorAll('#negocios-produto-tabs .tab').forEach(el=>el.classList.toggle('active', el.dataset.produto===produto));
+  renderNegocios();
+}
 function renderNegocios(){
   const busca = (document.getElementById('neg-busca')?.value||'').toLowerCase();
   const filtro = document.getElementById('neg-filtro-status')?.value||'';
   const de = document.getElementById('neg-de')?.value||'';
   const ate = document.getElementById('neg-ate')?.value||'';
   let list = [...STORE.negocios];
+  if(negocioProdutoFiltro) list = list.filter(n=>(n.produto||'Sicoob')===negocioProdutoFiltro);
   if(busca) list = list.filter(n=> (n.empresaCliente||'').toLowerCase().includes(busca));
   if(filtro) list = list.filter(n=>n.status===filtro);
   if(de) list = list.filter(n=>(n.data||'')>=de);
@@ -1839,7 +1857,10 @@ function openNegocioModal(id){
     toast('Cadastre ao menos um comissionado na aba Rede antes de montar a divisão.', 'err');
   }
   renderSplitBox();
-  sugerirPercentualBidatx();
+  // só sugere sozinho num negócio NOVO — editando um já salvo, o % é o que está gravado (pode ter
+  // sido negociado manualmente e não bater com X/Y); só recalcula se o usuário mexer em produto ou
+  // comissionado ativamente (ver onchange em cada um, chamam sugerirPercentualBidatx() de novo).
+  if(!id) sugerirPercentualBidatx();
   document.getElementById('modal-negocio').classList.add('open');
 }
 // sugere a % da BIDATX na divisão conforme o produto e se o Vick está vendendo direto (sociedade
