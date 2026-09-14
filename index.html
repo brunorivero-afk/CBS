@@ -1452,7 +1452,26 @@ function calcLucro(produto){
 /* ================= DASHBOARD ================= */
 // as 2 linhas de negócio que existem — cada seção do Dashboard abaixo dos cards gerais é uma delas.
 const DASHBOARD_PRODUTOS = ['Sicoob', 'Cartão de Crédito'];
-function dashboardCards(t, l, ehOperacional){
+function dashboardCards(t, l, ehOperacional, produto){
+  // Fly Pay: Lucro Bruto = Lucro Líquido (não tem etapa intermediária, ver calcCascataRecebimento) —
+  // por isso só 1 card de lucro, não 2. Cascata é uma divisão só em 4 fatias irmãs (Intermediação,
+  // Custo Operacional, comissão de venda, pool BIDATX) — "Comissionamento rede"/"Pool BIDATX" aqui são
+  // essas 2 últimas fatias, derivadas dos %s já configurados (não precisa de config novo):
+  // comissãoPct = bidatxPctNormal - bidatxPctVick (a diferença É a comissão); poolPct = o que sobra.
+  if(produto==='Cartão de Crédito'){
+    const comissaoPct = round2((Number(STORE.config.cartaoBidatxPctNormal)||0) - (Number(STORE.config.cartaoBidatxPctVick)||0));
+    const poolPct = round2(100 - (Number(STORE.config.cartaoIntermediacaoPct)||0) - (Number(STORE.config.cartaoCustoOperacionalPct)||0) - comissaoPct);
+    const cards = [
+      {lbl:'Total recebido', val:fmtR$(t.totalRecebido), cls:'blue'},
+      {lbl:'Imposto retido', val:fmtR$(t.totalImposto), cls:'warn'},
+      {lbl:'Lucro líquido Enterprise Capital', val:fmtR$(t.totalLiquidoEmpresa), cls:'blue'},
+      {lbl:'Intermediação', val:fmtR$(t.totalCorplink), cls:''},
+      {lbl:'Custo Operacional', val:fmtR$(t.totalAgente), cls:''},
+      {lbl:`Comissionamento rede (${comissaoPct}%)`, val:fmtR$(round2(t.totalLiquidoEmpresa*comissaoPct/100)), cls:''},
+      {lbl:`Pool BIDATX (${poolPct}%)`, val:fmtR$(round2(t.totalLiquidoEmpresa*poolPct/100)), cls:''},
+    ];
+    return cards.map(c=>`<div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>`).join('');
+  }
   const cards = [
     {lbl:'Total recebido', val:fmtR$(t.totalRecebido), cls:'blue'},
     {lbl:'Imposto retido', val:fmtR$(t.totalImposto), cls:'warn'},
@@ -1505,7 +1524,7 @@ function dashboardSecaoHtml(produto, ehOperacional){
   const l = calcLucro(produto);
   return `
     <h2 style="font-size:18px;margin:26px 0 12px;padding-top:10px;border-top:1px solid var(--border)">${esc(produtoLabel(produto))}</h2>
-    <div class="grid-cards">${dashboardCards(t, l, ehOperacional)}</div>
+    <div class="grid-cards">${dashboardCards(t, l, ehOperacional, produto)}</div>
     ${!ehOperacional ? `<div class="panel">
       <div class="panel-head"><h3>Lucro por sócio</h3></div>
       ${dashboardLucroSocioHtml(l)}
