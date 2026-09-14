@@ -469,10 +469,14 @@ tbody tr:hover{background:var(--card);}
 
         <div class="panel" style="max-width:520px">
           <div class="panel-head"><h3>% padrão da BIDATX — produto Sicoob</h3></div>
-          <p class="field-hint" style="margin-bottom:16px">Todo negócio novo de Sicoob já entra com a BIDATX na divisão, com essa % (sobre o Lucro Líquido) pré-preenchida — edite direto no negócio quando for exceção de negociação, sem precisar mudar o padrão aqui. Não varia por quem vendeu (o corte do Vick aqui já sai pelo Custo Operacional).</p>
+          <p class="field-hint" style="margin-bottom:16px">Todo negócio novo de Sicoob já entra com a BIDATX na divisão, com essa % (sobre o Lucro Líquido) pré-preenchida — edite direto no negócio quando for exceção de negociação, sem precisar mudar o padrão aqui. A % sugerida varia conforme o Vinicius está vendendo direto ou não — o sistema detecta sozinho pelo vínculo de sócio do comissionado.</p>
           <div class="field">
-            <label>% padrão da BIDATX</label>
+            <label>% quando alguém da rede vende (normal)</label>
             <input type="number" step="0.01" min="0" max="100" id="cfg-bidatx-pct">
+          </div>
+          <div class="field">
+            <label>% quando o Vinicius vende direto</label>
+            <input type="number" step="0.01" min="0" max="100" id="cfg-sicoob-bidatx-vick">
           </div>
           <button class="btn btn-primary btn-sm" onclick="saveBidatxPct()">Salvar</button>
         </div>
@@ -817,7 +821,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ================= DADOS (espelho local do Supabase, populado por refreshStore()) ================= */
-let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, bidatxPct:70, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, cartaoIntermediacaoPct:10, cartaoCustoOperacionalPct:10, mesFechadoAte:null, ndaTemplatePath:null } };
+let STORE = { usuarios:[], comissionados:[], negocios:[], recebimentos:[], retiradas:[], ajustes:[], config:{ agentePct:50, impostoPct:0, corplinkPct:20, bidatxPct:70, sicoobBidatxPctVick:20, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, cartaoIntermediacaoPct:10, cartaoCustoOperacionalPct:10, mesFechadoAte:null, ndaTemplatePath:null } };
 let currentUser = null; // { email, nome, posicao }
 
 async function refreshStore(){
@@ -865,12 +869,13 @@ async function refreshStore(){
   });
   STORE.config = configR.data
     ? { impostoPct:Number(configR.data.imposto_pct), agentePct:Number(configR.data.agente_pct), corplinkPct: configR.data.corplink_pct!=null?Number(configR.data.corplink_pct):20, bidatxPct: configR.data.bidatx_pct!=null?Number(configR.data.bidatx_pct):70,
+        sicoobBidatxPctVick: configR.data.sicoob_bidatx_pct_vick!=null?Number(configR.data.sicoob_bidatx_pct_vick):20,
         cartaoBidatxPctNormal: configR.data.cartao_bidatx_pct_normal!=null?Number(configR.data.cartao_bidatx_pct_normal):72.5,
         cartaoBidatxPctVick: configR.data.cartao_bidatx_pct_vick!=null?Number(configR.data.cartao_bidatx_pct_vick):22.5,
         cartaoIntermediacaoPct: configR.data.cartao_intermediacao_pct!=null?Number(configR.data.cartao_intermediacao_pct):10,
         cartaoCustoOperacionalPct: configR.data.cartao_custo_operacional_pct!=null?Number(configR.data.cartao_custo_operacional_pct):10,
         mesFechadoAte: configR.data.mes_fechado_ate||null, ndaTemplatePath: configR.data.nda_template_path||null }
-    : { impostoPct:0, agentePct:50, corplinkPct:20, bidatxPct:70, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, cartaoIntermediacaoPct:10, cartaoCustoOperacionalPct:10, mesFechadoAte:null, ndaTemplatePath:null };
+    : { impostoPct:0, agentePct:50, corplinkPct:20, bidatxPct:70, sicoobBidatxPctVick:20, cartaoBidatxPctNormal:72.5, cartaoBidatxPctVick:22.5, cartaoIntermediacaoPct:10, cartaoCustoOperacionalPct:10, mesFechadoAte:null, ndaTemplatePath:null };
 
   STORE.recebimentos = (recebimentosR.data||[]).map(r=>({
     id:r.id, negocioId:r.negocio_id, data:r.data, referencia:r.referencia,
@@ -1063,6 +1068,7 @@ function renderConfig(){
   document.getElementById('cfg-imposto-pct').value = STORE.config.impostoPct;
   document.getElementById('cfg-corplink-pct').value = STORE.config.corplinkPct;
   document.getElementById('cfg-bidatx-pct').value = STORE.config.bidatxPct;
+  document.getElementById('cfg-sicoob-bidatx-vick').value = STORE.config.sicoobBidatxPctVick;
   document.getElementById('cfg-cartao-bidatx-normal').value = STORE.config.cartaoBidatxPctNormal;
   document.getElementById('cfg-cartao-bidatx-vick').value = STORE.config.cartaoBidatxPctVick;
   document.getElementById('cfg-cartao-intermediacao-pct').value = STORE.config.cartaoIntermediacaoPct;
@@ -1076,8 +1082,9 @@ function renderConfig(){
 }
 async function saveBidatxPct(){
   const pct = Number(val('cfg-bidatx-pct'));
-  if(isNaN(pct) || pct<0 || pct>100){ toast('Informe um percentual entre 0 e 100.','err'); return; }
-  const { error } = await sbClient.from('cbs_config').update({ bidatx_pct: pct }).eq('id',1);
+  const vick = Number(val('cfg-sicoob-bidatx-vick'));
+  if(isNaN(pct) || pct<0 || pct>100 || isNaN(vick) || vick<0 || vick>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
+  const { error } = await sbClient.from('cbs_config').update({ bidatx_pct: pct, sicoob_bidatx_pct_vick: vick }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
   toast('% padrão da BIDATX salvo.');
   await refreshStore(); renderAll();
@@ -1837,8 +1844,9 @@ function openNegocioModal(id){
 }
 // sugere a % da BIDATX na divisão conforme o produto e se o Vick está vendendo direto (sociedade
 // Bruno/Diego/Eduardo/BIDATX, 2026-09-14) — sempre editável depois, é só um ponto de partida.
-// Sicoob: % fixa (bidatxPct de Config), não varia por quem vendeu — o corte do Vick ali já sai pelo
-// Custo Operacional. Cartão de Crédito: varia bastante conforme o Vick vendeu ou não (ver memória).
+// Vale pros dois produtos: quando o Vick vende, a comissão de venda dele fica retida inteira no CBS
+// (recebe direto, "Cliente confidencial" na BIDATX Correspondência) — só o pool dos outros 3 sócios
+// vai pra BIDATX, por isso a % cai bastante nesse caso, em ambos os produtos.
 function sugerirPercentualBidatx(){
   const bidatx = STORE.comissionados.find(c=>(c.nome||'').toLowerCase().includes('bidatx'));
   if(!bidatx) return;
@@ -1848,7 +1856,7 @@ function sugerirPercentualBidatx(){
   const vickVendeu = mnSplitRows.some(r=>r.comissionadoId && comById(Number(r.comissionadoId))?.socioVinculado===VICK_EMAIL);
   const sugerido = produto==='Cartão de Crédito'
     ? (vickVendeu ? STORE.config.cartaoBidatxPctVick : STORE.config.cartaoBidatxPctNormal)
-    : STORE.config.bidatxPct;
+    : (vickVendeu ? STORE.config.sicoobBidatxPctVick : STORE.config.bidatxPct);
   mnSplitRows[idx].percentual = sugerido;
   renderSplitBox();
 }

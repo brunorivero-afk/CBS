@@ -309,6 +309,11 @@ alter table cbs_config add column if not exists nda_template_path text;
 alter table cbs_config add column if not exists bidatx_pct numeric(6,2) not null default 70;
 update cbs_config set bidatx_pct = 70 where id = 1 and bidatx_pct = 38;
 
+-- % da BIDATX no Sicoob QUANDO o Vinicius vende direto (2026-09-14) — descoberto que bidatx_pct acima
+-- não é fixo como se pensava: também varia por quem vendeu, igual o Cartão. Se o Vinicius vendeu, a
+-- comissão de venda dele (50%) fica retida no CBS e só o pool dos outros 3 sócios (20%) vai pra BIDATX.
+alter table cbs_config add column if not exists sicoob_bidatx_pct_vick numeric(6,2) not null default 20;
+
 -- % padrão da BIDATX pro produto Cartão de Crédito (2026-09-14) — diferente do Sicoob porque aqui a
 -- % de fato VARIA conforme quem vendeu: se foi o Vinicius vendendo direto, a comissão de venda dele
 -- (50%) e a fatia dele na sociedade (7,5%) ficam retidas no CBS, e só os outros 3 sócios (22,5%) vão
