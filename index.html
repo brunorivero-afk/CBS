@@ -353,7 +353,7 @@ tbody tr:hover{background:var(--card);}
         <p class="field-hint" style="margin-bottom:14px">Acompanha a situação de cada negócio junto ao Sicoob, do indicado até a conta aberta. Use ◀ Voltar / Avançar ▶ em cada card pra mudar de etapa. "Recebido" é automático e mensal — o negócio aparece ali só nos meses em que teve Recebimento lançado; fora isso, some do quadro (já formou, o controle contínuo fica em Recebimentos/Dashboard/Extratos).</p>
         <div class="tabs" id="pipeline-produto-tabs" style="margin-bottom:14px">
           <div class="tab active" data-produto="Sicoob" onclick="setPipelineProduto('Sicoob')">Sicoob</div>
-          <div class="tab" data-produto="Cartão de Crédito" onclick="setPipelineProduto('Cartão de Crédito')">Cartão de Crédito</div>
+          <div class="tab" data-produto="Cartão de Crédito" onclick="setPipelineProduto('Cartão de Crédito')">Fly Pay</div>
         </div>
         <div class="toolbar" style="margin-bottom:14px">
           <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim)"><input type="checkbox" id="rel-interno"> Incluir números internos (comissão/valores)</label>
@@ -493,7 +493,7 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>Divisão da comissão — produto Cartão de Crédito</h3></div>
+          <div class="panel-head"><h3>Divisão da comissão — produto Fly Pay</h3></div>
           <p class="field-hint" style="margin-bottom:16px">Diferente do Sicoob: aqui Intermediação e Custo Operacional saem os dois direto do Lucro Bruto (mesmo imposto do Sicoob), em paralelo — não um sequencial ao outro. Editável por lançamento, isso aqui é só o padrão pros novos.</p>
           <div class="field"><label>% Intermediação (sobre o Lucro Bruto)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-intermediacao-pct"></div>
           <div class="field"><label>% Custo Operacional (sobre o Lucro Bruto)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-agente-pct"></div>
@@ -501,7 +501,7 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>% padrão da BIDATX — produto Cartão de Crédito</h3></div>
+          <div class="panel-head"><h3>% padrão da BIDATX — produto Fly Pay</h3></div>
           <p class="field-hint" style="margin-bottom:16px">Aqui a % sugerida no negócio varia conforme o Vinicius está vendendo direto ou não (sociedade Bruno/Diego/Eduardo/BIDATX) — o sistema já detecta isso sozinho pelo vínculo de sócio do comissionado, sempre editável no negócio pra exceção.</p>
           <div class="field"><label>% quando alguém da rede vende (normal)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-bidatx-normal"></div>
           <div class="field"><label>% quando o Vinicius vende direto</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-bidatx-vick"></div>
@@ -613,7 +613,7 @@ tbody tr:hover{background:var(--card);}
       <label>Produto</label>
       <select id="mn-produto" onchange="sugerirPercentualBidatx()">
         <option value="Sicoob">Sicoob</option>
-        <option value="Cartão de Crédito">Cartão de Crédito</option>
+        <option value="Cartão de Crédito">Fly Pay</option>
       </select>
       <div class="field-hint">Muda a % sugerida pra BIDATX na divisão abaixo — ajuste automático, sempre editável se for exceção.</div>
     </div>
@@ -922,6 +922,9 @@ function todayISO(){ return new Date().toISOString().slice(0,10); }
 function val(id){ return document.getElementById(id).value; }
 function setVal(id,v){ document.getElementById(id).value = v==null?'':v; }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// nome de EXIBIÇÃO do produto — o valor gravado no banco continua 'Cartão de Crédito' (não mexemos
+// no banco), mas a marca real da operadora é "Fly Pay", então é isso que o usuário deve ver na tela.
+function produtoLabel(p){ return p==='Cartão de Crédito' ? 'Fly Pay' : (p||'Sicoob'); }
 function toast(msg,type){
   const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||'ok');
   clearTimeout(window._toastTO); window._toastTO=setTimeout(()=>{t.className='';},3200);
@@ -1100,7 +1103,7 @@ async function saveCartaoCascataPct(){
   if(isNaN(intermediacao) || intermediacao<0 || intermediacao>100 || isNaN(custoOp) || custoOp<0 || custoOp>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
   const { error } = await sbClient.from('cbs_config').update({ cartao_intermediacao_pct: intermediacao, cartao_custo_operacional_pct: custoOp }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
-  toast('Divisão padrão do Cartão de Crédito salva.');
+  toast('Divisão padrão do Fly Pay salva.');
   await refreshStore(); renderAll();
 }
 async function saveCartaoBidatxPct(){
@@ -1109,7 +1112,7 @@ async function saveCartaoBidatxPct(){
   if(isNaN(normal) || normal<0 || normal>100 || isNaN(vick) || vick<0 || vick>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
   const { error } = await sbClient.from('cbs_config').update({ cartao_bidatx_pct_normal: normal, cartao_bidatx_pct_vick: vick }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
-  toast('% padrão da BIDATX pro Cartão de Crédito salvo.');
+  toast('% padrão da BIDATX pro Fly Pay salvo.');
   await refreshStore(); renderAll();
 }
 function renderNdaStatus(){
@@ -1515,7 +1518,7 @@ function renderNegocios(){
   tb.innerHTML = list.length ? list.map(n=>`
     <tr>
       <td class="name-cell"><b>${esc(n.empresaCliente)}</b>${n.cnpj?`<small>${esc(n.cnpj)}</small>`:''}${!n.aprovadoPor?`<small style="color:var(--warn)">⏳ Aguardando aprovação</small>`:''}</td>
-      <td>${esc(n.produto||'Sicoob')}</td>
+      <td>${esc(produtoLabel(n.produto))}</td>
       <td>${fmtData(n.data)}</td>
       <td>${statusBadge(n.status)}</td>
       <td>${(n.comissionados||[]).map(c=>`${esc(comById(c.comissionadoId)?.nome||'?')} (${c.percentual}%)${c.principal?' ★':''}`).join(', ')||'—'}</td>
@@ -1646,7 +1649,7 @@ function gerarRelatorioPipeline(){
   const interno = document.getElementById('rel-interno').checked;
   const grupos = agruparPipeline();
   const splits = allSplits();
-  let html = `<h2 style="margin-bottom:2px">Relatório do Pipeline</h2>
+  let html = `<h2 style="margin-bottom:2px">Relatório do Pipeline — ${esc(produtoLabel(pipelineProdutoAtivo))}</h2>
     <div style="color:#555;font-size:13px;margin-bottom:20px">Gerado em ${fmtData(todayISO())}${interno?'':' — versão sem números internos'}</div>`;
 
   PIPELINE_COLUNAS.forEach(c=>{
@@ -1950,7 +1953,7 @@ function renderRede(){
           pendente: doProduto.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0)
         };
       });
-      breakdown = porProduto.map(p=>`<small style="display:block">${esc(p.produto)}: ${p.negs} neg. · ${fmtR$(p.recebido)} recebido · ${fmtR$(p.pendente)} pendente</small>`).join('');
+      breakdown = porProduto.map(p=>`<small style="display:block">${esc(produtoLabel(p.produto))}: ${p.negs} neg. · ${fmtR$(p.recebido)} recebido · ${fmtR$(p.pendente)} pendente</small>`).join('');
     }
     const cadeia = cadeiaIndicacao(c);
     const indicados = STORE.comissionados.filter(x=>x.indicadoPor===c.id);
@@ -2060,7 +2063,7 @@ function fillRecebimentoFiltroNegocio(){
   const atual = sel.value;
   sel.innerHTML = `<option value="">Todos os negócios</option>` +
     [...STORE.negocios].sort((a,b)=>(a.empresaCliente||'').localeCompare(b.empresaCliente||''))
-      .map(n=>`<option value="${n.id}">${esc(n.empresaCliente)} (${esc(n.produto||'Sicoob')})</option>`).join('');
+      .map(n=>`<option value="${n.id}">${esc(n.empresaCliente)} (${esc(produtoLabel(n.produto))})</option>`).join('');
   sel.value = atual;
 }
 function renderRecebimentos(){
@@ -2081,7 +2084,7 @@ function renderRecebimentos(){
     return `<tr>
       <td>${fmtData(r.data)}</td>
       <td>${esc(n?n.empresaCliente:'—')}</td>
-      <td>${esc(n?.produto||'Sicoob')}</td>
+      <td>${esc(produtoLabel(n?.produto))}</td>
       <td>${esc(fmtRef(r.referencia))||'—'}</td>
       <td>${fmtR$(r.valorRecebido)}</td>
       <td>${fmtR$(r.valorCorplink)}</td>
@@ -2295,7 +2298,7 @@ function fillPagamentoFiltroNegocio(){
   const atual = sel.value;
   sel.innerHTML = `<option value="">Todos os negócios</option>` +
     [...STORE.negocios].sort((a,b)=>(a.empresaCliente||'').localeCompare(b.empresaCliente||''))
-      .map(n=>`<option value="${n.id}">${esc(n.empresaCliente)} (${esc(n.produto||'Sicoob')})</option>`).join('');
+      .map(n=>`<option value="${n.id}">${esc(n.empresaCliente)} (${esc(produtoLabel(n.produto))})</option>`).join('');
   sel.value = atual;
 }
 function renderPagamentos(){
@@ -2313,7 +2316,7 @@ function renderPagamentos(){
     return `
     <tr>
       <td>${esc(comById(s.comissionadoId)?.nome||'?')}</td>
-      <td>${esc(s.empresa)}<br><small style="color:var(--text-faint)">${esc(s.produto)}</small></td>
+      <td>${esc(s.empresa)}<br><small style="color:var(--text-faint)">${esc(produtoLabel(s.produto))}</small></td>
       <td>${fmtData(s.dataRecebimento)}${s.referencia?` <small style="color:var(--text-faint)">(${esc(fmtRef(s.referencia))})</small>`:''}</td>
       <td>${fmtR$(s.valor)}</td>
       <td>${s.statusPagamento==='Pago' ? `<span class="badge green">${rotuloPago}</span>` : statusBadge(s.statusPagamento)}</td>
