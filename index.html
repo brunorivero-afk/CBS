@@ -300,23 +300,8 @@ tbody tr:hover{background:var(--card);}
 
       <!-- DASHBOARD -->
       <div class="view active" id="view-dashboard">
-        <div class="grid-cards" id="dash-cards"></div>
-        <div class="panel" id="painel-lucro-socio">
-          <div class="panel-head"><h3>Lucro por sócio</h3></div>
-          <div id="dash-lucro"></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><h3>Negócios recentes</h3></div>
-          <div class="tbl-wrap"><table id="dash-tbl-negocios"><thead><tr>
-            <th>Empresa</th><th>Início</th><th>Status</th><th>Rede</th>
-          </tr></thead><tbody></tbody></table></div>
-        </div>
-        <div class="panel">
-          <div class="panel-head"><h3>Repasses pendentes</h3></div>
-          <div class="tbl-wrap"><table id="dash-tbl-pendentes"><thead><tr>
-            <th>Comissionado</th><th>Empresa</th><th>Valor</th><th>Data recebimento</th>
-          </tr></thead><tbody></tbody></table></div>
-        </div>
+        <div class="grid-cards" id="dash-cards-geral"></div>
+        <div id="dash-secoes-produto"></div>
       </div>
 
       <!-- NEGOCIOS -->
@@ -1401,15 +1386,19 @@ function allSplits(){
   });
   return out;
 }
-function totals(){
-  const splits = allSplits();
-  const negociosAtivos = STORE.negocios.filter(n=>n.status==='Ativo').length;
-  const totalRecebido = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorRecebido||0),0);
-  const totalImposto = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorImposto||0),0);
-  const totalAgente = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorAgente||0),0);
-  const totalCorplink = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorCorplink||0),0);
+// produto opcional: sem ele, soma os dois negócios (Sicoob + Fly Pay) — usado pelos 2 cards gerais do
+// topo do Dashboard. Com produto, filtra tudo pra aquele negócio só — usado nas seções por produto.
+function totals(produto){
+  const recs = produto ? STORE.recebimentos.filter(r=>(negById(r.negocioId)?.produto||'Sicoob')===produto) : STORE.recebimentos;
+  const splitsAll = allSplits();
+  const splits = produto ? splitsAll.filter(s=>(s.produto||'Sicoob')===produto) : splitsAll;
+  const negociosAtivos = STORE.negocios.filter(n=>n.status==='Ativo' && (!produto || (n.produto||'Sicoob')===produto)).length;
+  const totalRecebido = recs.reduce((a,r)=>a+Number(r.valorRecebido||0),0);
+  const totalImposto = recs.reduce((a,r)=>a+Number(r.valorImposto||0),0);
+  const totalAgente = recs.reduce((a,r)=>a+Number(r.valorAgente||0),0);
+  const totalCorplink = recs.reduce((a,r)=>a+Number(r.valorCorplink||0),0);
   const lucroBrutoCBS = totalRecebido - totalImposto;
-  const totalLiquidoEmpresa = STORE.recebimentos.reduce((a,r)=>a+Number(r.valorLiquido!=null?r.valorLiquido:r.valorRecebido),0); // Lucro Líquido (já sem Custo Operacional e CorpLink)
+  const totalLiquidoEmpresa = recs.reduce((a,r)=>a+Number(r.valorLiquido!=null?r.valorLiquido:r.valorRecebido),0); // Lucro Líquido (já sem Custo Operacional e CorpLink)
   const repassadoPago = splits.filter(s=>s.statusPagamento==='Pago').reduce((a,s)=>a+Number(s.valor||0),0);
   const repassadoPendente = splits.filter(s=>s.statusPagamento==='Pendente').reduce((a,s)=>a+Number(s.valor||0),0);
   const saldoLiquido = totalLiquidoEmpresa - repassadoPago;
@@ -1429,8 +1418,8 @@ function parteDoSocio(email, totalLucro){
 }
 // Lucro Sócio = o que sobra do Lucro Líquido CBS (que já é sem o Custo Operacional) depois da comissão de toda a rede.
 // Dividido pela % configurada em cada sócio (lucroPct) se elas somarem 100%; senão, cai pra divisão igual entre todos.
-function calcLucro(){
-  const t = totals();
+function calcLucro(produto){
+  const t = totals(produto);
   const totalComissoesRede = t.repassadoPago + t.repassadoPendente;
   const lucro = t.totalLiquidoEmpresa - totalComissoesRede;
   const sociosBase = STORE.usuarios.filter(u=>u.posicao==='Sócio');
@@ -1444,11 +1433,9 @@ function calcLucro(){
 }
 
 /* ================= DASHBOARD ================= */
-function renderDashboard(){
-  const t = totals();
-  const l = calcLucro();
-  const ehOperacional = currentUser && currentUser.posicao==='Operacional';
-  document.getElementById('topbar-negocios-val').textContent = t.negociosAtivos;
+// as 2 linhas de negócio que existem — cada seção do Dashboard abaixo dos cards gerais é uma delas.
+const DASHBOARD_PRODUTOS = ['Sicoob', 'Cartão de Crédito'];
+function dashboardCards(t, l, ehOperacional){
   const cards = [
     {lbl:'Total recebido', val:fmtR$(t.totalRecebido), cls:'blue'},
     {lbl:'Imposto retido', val:fmtR$(t.totalImposto), cls:'warn'},
@@ -1461,39 +1448,73 @@ function renderDashboard(){
     {lbl:'Pagamentos pendentes', val:fmtR$(t.repassadoPendente), cls:'warn'},
   ];
   if(!ehOperacional) cards.push({lbl:'Lucros Enterprise', val:fmtR$(l.lucro), cls:'green'});
-  document.getElementById('dash-cards').innerHTML = cards.map(c=>`
-    <div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>
-  `).join('');
-
-  // painel de Lucro por Sócio fica oculto pra Operacional — é reporte de sócio, não algo que ele precisa pra operar
-  document.getElementById('painel-lucro-socio').style.display = ehOperacional ? 'none' : 'block';
-  if(!ehOperacional) document.getElementById('dash-lucro').innerHTML = `
+  return cards.map(c=>`<div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>`).join('');
+}
+function dashboardLucroSocioHtml(l){
+  return `
     ${l.socios.length && !l.usaPercentual && l.somaPct>0 ? `<p class="field-hint" style="margin-bottom:10px">Os % de lucro configurados somam ${l.somaPct}% (não 100%) — usando divisão igual entre os sócios por enquanto. Ajuste em Configurações → Usuários.</p>` : ''}
     <div class="tbl-wrap"><table><thead><tr><th>Sócio</th>${l.usaPercentual?'<th>%</th>':''}<th>Parte no Lucro Sócio</th></tr></thead><tbody>
       ${l.socios.length ? l.socios.map(s=>`<tr><td>${esc(s.nome)}</td>${l.usaPercentual?`<td>${s.lucroPct}%</td>`:''}<td><b style="color:var(--accent)">${fmtR$(s.parte)}</b></td></tr>`).join('')
         : `<tr class="empty-row"><td colspan="2">Nenhum usuário marcado como Sócio em Configurações.</td></tr>`}
     </tbody></table></div>`;
-
-  const tb1 = document.querySelector('#dash-tbl-negocios tbody');
-  const recentes = [...STORE.negocios].sort((a,b)=>(b.dataCadastro||'').localeCompare(a.dataCadastro||'')).slice(0,6);
-  tb1.innerHTML = recentes.length ? recentes.map(n=>`
+}
+function dashboardTblNegociosHtml(produto){
+  const recentes = [...STORE.negocios].filter(n=>(n.produto||'Sicoob')===produto)
+    .sort((a,b)=>(b.dataCadastro||'').localeCompare(a.dataCadastro||'')).slice(0,6);
+  return recentes.length ? recentes.map(n=>`
     <tr>
       <td><b>${esc(n.empresaCliente)}</b></td>
       <td>${fmtData(n.data)}</td>
       <td>${statusBadge(n.status)}</td>
       <td>${(n.comissionados||[]).map(c=>esc(comById(c.comissionadoId)?.nome||'?')).join(', ')||'—'}</td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="4">Nenhum negócio cadastrado ainda.</td></tr>`;
-
-  const tb2 = document.querySelector('#dash-tbl-pendentes tbody');
-  const pendentes = allSplits().filter(s=>s.statusPagamento==='Pendente')
+}
+function dashboardTblPendentesHtml(produto){
+  const pendentes = allSplits().filter(s=>s.statusPagamento==='Pendente' && (s.produto||'Sicoob')===produto)
     .sort((a,b)=>(a.dataRecebimento||'').localeCompare(b.dataRecebimento||'')).slice(0,8);
-  tb2.innerHTML = pendentes.length ? pendentes.map(s=>`
+  return pendentes.length ? pendentes.map(s=>`
     <tr>
       <td>${esc(comById(s.comissionadoId)?.nome||'?')}</td>
       <td>${esc(s.empresa)}</td>
       <td>${fmtR$(s.valor)}</td>
       <td>${fmtData(s.dataRecebimento)}</td>
     </tr>`).join('') : `<tr class="empty-row"><td colspan="4">Sem repasses pendentes.</td></tr>`;
+}
+// uma seção completa do Dashboard (cards + Lucro por Sócio + as 2 tabelas), escopada a UM produto —
+// mesmo conteúdo que o Dashboard sempre teve, só que agora repetido uma vez por negócio (Sicoob/Fly Pay)
+// em vez de misturar os dois num total só.
+function dashboardSecaoHtml(produto, ehOperacional){
+  const t = totals(produto);
+  const l = calcLucro(produto);
+  return `
+    <h2 style="font-size:18px;margin:26px 0 12px;padding-top:10px;border-top:1px solid var(--border)">${esc(produtoLabel(produto))}</h2>
+    <div class="grid-cards">${dashboardCards(t, l, ehOperacional)}</div>
+    ${!ehOperacional ? `<div class="panel">
+      <div class="panel-head"><h3>Lucro por sócio</h3></div>
+      ${dashboardLucroSocioHtml(l)}
+    </div>` : ''}
+    <div class="panel">
+      <div class="panel-head"><h3>Negócios recentes</h3></div>
+      <div class="tbl-wrap"><table><thead><tr>
+        <th>Empresa</th><th>Início</th><th>Status</th><th>Rede</th>
+      </tr></thead><tbody>${dashboardTblNegociosHtml(produto)}</tbody></table></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Repasses pendentes</h3></div>
+      <div class="tbl-wrap"><table><thead><tr>
+        <th>Comissionado</th><th>Empresa</th><th>Valor</th><th>Data recebimento</th>
+      </tr></thead><tbody>${dashboardTblPendentesHtml(produto)}</tbody></table></div>
+    </div>`;
+}
+function renderDashboard(){
+  const tGeral = totals(); // sem produto = os dois negócios somados
+  const ehOperacional = currentUser && currentUser.posicao==='Operacional';
+  document.getElementById('topbar-negocios-val').textContent = tGeral.negociosAtivos;
+  document.getElementById('dash-cards-geral').innerHTML = `
+    <div class="stat-card"><div class="lbl">Total geral recebido</div><div class="val blue">${fmtR$(tGeral.totalRecebido)}</div></div>
+    <div class="stat-card"><div class="lbl">Imposto pago geral</div><div class="val warn">${fmtR$(tGeral.totalImposto)}</div></div>`;
+  document.getElementById('dash-secoes-produto').innerHTML =
+    DASHBOARD_PRODUTOS.map(p=>dashboardSecaoHtml(p, ehOperacional)).join('');
 }
 
 function statusBadge(status){
