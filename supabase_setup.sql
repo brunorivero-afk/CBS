@@ -490,8 +490,14 @@ create policy "cbs-contratos - delete" on storage.objects for delete using (buck
 --     comissionados do negócio — ou seja, ele vendeu por conta própria — o nome do cliente NUNCA
 --     aparece pra BIDATX, vira "Cliente confidencial". Automático, sem marcação manual por negócio.
 -- ============================================================
+-- 2026-09-14: ganharam "produto" (Sicoob/Cartão de Crédito) e "vick_vendeu" (boolean) — o mesmo
+-- sinal que já escondia o nome do cliente, agora também devolvido explicitamente. É o que a BIDATX
+-- Correspondência usa pra saber se, no Cartão de Crédito, esse recebimento é 100% pool de sócios
+-- (Vick vendeu — a comissão de venda dele já ficou inteira aqui no CBS) ou se tem comissão de venda
+-- normal + pool (ninguém do Vick envolvido). No Sicoob esse flag não muda nada (fórmula não varia
+-- por quem vendeu), mas devolvemos mesmo assim por consistência.
 create or replace function cbs_bidatx_negocios()
-returns table(negocio_id bigint, empresa text, percentual numeric)
+returns table(negocio_id bigint, empresa text, percentual numeric, produto text, vick_vendeu boolean)
 language plpgsql security definer stable as $$
 begin
   if not gblcom_is_authorized() then return; end if;
@@ -502,7 +508,12 @@ begin
         join cbs_comissionados c2 on c2.id = nc2.comissionado_id
         where nc2.negocio_id = n.id and c2.socio_vinculado = 'vickcampanario@gmail.com'
       ) then 'Cliente confidencial' else n.empresa_cliente end,
-      nc.percentual
+      nc.percentual, n.produto,
+      exists (
+        select 1 from cbs_negocio_comissionados nc3
+        join cbs_comissionados c3 on c3.id = nc3.comissionado_id
+        where nc3.negocio_id = n.id and c3.socio_vinculado = 'vickcampanario@gmail.com'
+      )
     from cbs_negocio_comissionados nc
     join cbs_negocios n on n.id = nc.negocio_id
     join cbs_comissionados c on c.id = nc.comissionado_id
@@ -512,7 +523,7 @@ $$;
 grant execute on function cbs_bidatx_negocios() to authenticated;
 
 create or replace function cbs_bidatx_recebimentos()
-returns table(recebimento_id bigint, negocio_id bigint, empresa text, data date, referencia text, valor numeric)
+returns table(recebimento_id bigint, negocio_id bigint, empresa text, data date, referencia text, valor numeric, produto text, vick_vendeu boolean)
 language plpgsql security definer stable as $$
 begin
   if not gblcom_is_authorized() then return; end if;
@@ -523,7 +534,12 @@ begin
         join cbs_comissionados c2 on c2.id = nc2.comissionado_id
         where nc2.negocio_id = r.negocio_id and c2.socio_vinculado = 'vickcampanario@gmail.com'
       ) then 'Cliente confidencial' else n.empresa_cliente end,
-      r.data, r.referencia, s.valor
+      r.data, r.referencia, s.valor, n.produto,
+      exists (
+        select 1 from cbs_negocio_comissionados nc3
+        join cbs_comissionados c3 on c3.id = nc3.comissionado_id
+        where nc3.negocio_id = r.negocio_id and c3.socio_vinculado = 'vickcampanario@gmail.com'
+      )
     from cbs_recebimento_splits s
     join cbs_recebimentos r on r.id = s.recebimento_id
     join cbs_negocios n on n.id = r.negocio_id
