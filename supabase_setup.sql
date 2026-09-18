@@ -553,3 +553,30 @@ begin
 end;
 $$;
 grant execute on function cbs_bidatx_recebimentos() to authenticated;
+
+-- espelho, só leitura, da etapa de negociação (situacao_sicoob) pra BIDATX Correspondência (2026-09-18)
+-- — só entra negócio já aprovado por um sócio (aguardando aprovação fica de fora de propósito) e não
+-- cancelado; "Recebido" não é etapa gravada (é calculada por ter Recebimento no mês), por isso não
+-- aparece aqui — quem cobre isso é a aba "Fluxo de Pagamento" de lá.
+create or replace function cbs_bidatx_pipeline()
+returns table(negocio_id bigint, empresa text, produto text, situacao_sicoob text)
+language plpgsql security definer stable as $$
+begin
+  if not gblcom_is_authorized() then return; end if;
+  return query
+    select distinct n.id,
+      case when exists (
+        select 1 from cbs_negocio_comissionados nc2
+        join cbs_comissionados c2 on c2.id = nc2.comissionado_id
+        where nc2.negocio_id = n.id and c2.socio_vinculado = 'vickcampanario@gmail.com'
+      ) then 'Cliente confidencial' else n.empresa_cliente end,
+      n.produto, n.situacao_sicoob
+    from cbs_negocios n
+    join cbs_negocio_comissionados nc on nc.negocio_id = n.id
+    join cbs_comissionados c on c.id = nc.comissionado_id
+    where c.nome ilike '%bidatx%'
+      and n.status <> 'Cancelado'
+      and n.aprovado_por is not null;
+end;
+$$;
+grant execute on function cbs_bidatx_pipeline() to authenticated;
