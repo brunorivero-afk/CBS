@@ -1222,6 +1222,17 @@ function fillMuComissionadoSelect(selected){
   sel.value = selected||'';
 }
 function openUsuarioModal(email){
+  // defesa em profundidade (a trava de verdade é a RLS): só um Sócio pode editar/criar Sócio ou
+  // Operacional — Operacional só mexe em Comercial, mesmo tendo acesso a essa tela.
+  const souSocio = currentUser && currentUser.posicao==='Sócio';
+  if(email && !souSocio){
+    const alvo = STORE.usuarios.find(u=>u.email===email);
+    if(alvo && alvo.posicao!=='Comercial'){ toast('Só um sócio pode editar um usuário Sócio ou Operacional.','err'); return; }
+  }
+  const posicaoSel = document.getElementById('mu-posicao');
+  posicaoSel.innerHTML = souSocio
+    ? '<option>Sócio</option><option>Comercial</option><option>Operacional</option>'
+    : '<option>Comercial</option>';
   document.getElementById('mu-titulo').textContent = email ? 'Editar usuário' : 'Novo usuário';
   setVal('mu-original-email', email||'');
   const emailInput = document.getElementById('mu-email');
@@ -1236,7 +1247,7 @@ function openUsuarioModal(email){
       ? 'E-mail não pode ser trocado aqui — pra mudar, exclua e cadastre de novo. Não precisa já existir no Supabase: o primeiro acesso é criado sozinho quando você manda o link de acesso pra essa pessoa.'
       : 'E-mail não pode ser trocado aqui (é a chave de acesso) — pra mudar, exclua e cadastre de novo.';
   } else {
-    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-posicao','Sócio'); setVal('mu-lucro-pct',''); setVal('mu-apelido','');
+    setVal('mu-nome',''); setVal('mu-email',''); setVal('mu-posicao', souSocio?'Sócio':'Comercial'); setVal('mu-lucro-pct',''); setVal('mu-apelido','');
     emailInput.disabled = false;
     document.getElementById('mu-email-hint').textContent = 'Precisa ser o e-mail de uma conta já criada no Supabase (Authentication → Users) — esse cadastro aqui só libera o acesso dela ao Enterprise Capital, não cria a conta de login. Exceção: pra posição Comercial, a conta pode ser criada automaticamente pelo link de acesso (veja depois de salvar).';
   }
@@ -1255,6 +1266,10 @@ async function saveUsuario(){
   apelido = apelido || null;
   if(!nome || !email){ toast('Preencha nome e e-mail.','err'); return; }
   if(posicao==='Comercial' && !comissionadoId){ toast('Selecione o comissionado vinculado.','err'); return; }
+  // defesa em profundidade — a trava de verdade é a RLS (só Sócio pode gravar posição Sócio/Operacional).
+  if(posicao!=='Comercial' && !(currentUser && currentUser.posicao==='Sócio')){
+    toast('Só um sócio pode definir posição Sócio ou Operacional.','err'); return;
+  }
   let error;
   if(originalEmail){
     ({ error } = await sbClient.from('cbs_usuarios').update({ nome, posicao, lucro_pct: lucroPct, comissionado_id: comissionadoId, apelido }).eq('email', originalEmail));
