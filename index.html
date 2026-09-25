@@ -492,22 +492,6 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>Divisão da comissão — produto Grupag</h3></div>
-          <p class="field-hint" style="margin-bottom:16px">Diferente do Sicoob: aqui Intermediação e Custo Operacional saem os dois direto do Lucro Bruto (mesmo imposto do Sicoob), em paralelo — não um sequencial ao outro. Editável por lançamento, isso aqui é só o padrão pros novos.</p>
-          <div class="field"><label>% Intermediação (sobre o Lucro Bruto)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-intermediacao-pct"></div>
-          <div class="field"><label>% Custo Operacional (sobre o Lucro Bruto)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-agente-pct"></div>
-          <button class="btn btn-primary btn-sm" onclick="saveCartaoCascataPct()">Salvar</button>
-        </div>
-
-        <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>% padrão da BIDATX — produto Grupag</h3></div>
-          <p class="field-hint" style="margin-bottom:16px">Aqui a % sugerida no negócio varia conforme o Vinicius está vendendo direto ou não (sociedade Bruno/Diego/Eduardo/BIDATX) — o sistema já detecta isso sozinho pelo vínculo de sócio do comissionado, sempre editável no negócio pra exceção.</p>
-          <div class="field"><label>% quando alguém da rede vende (normal)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-bidatx-normal"></div>
-          <div class="field"><label>% quando o Vinicius vende direto</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-bidatx-vick"></div>
-          <button class="btn btn-primary btn-sm" onclick="saveCartaoBidatxPct()">Salvar</button>
-        </div>
-
-        <div class="panel" style="max-width:520px">
           <div class="panel-head"><h3>Manutenção</h3></div>
           <p class="field-hint" style="margin-bottom:14px">
             Cada recebimento guarda os valores já calculados no momento do lançamento. Se a fórmula mudar depois, recebimentos antigos continuam com os números de quando foram salvos. Use o botão abaixo pra recalcular com a fórmula atual — recebimentos que já têm algum repasse marcado como <b>Pago</b> são pulados automaticamente, pra nunca alterar um valor que já foi de fato pago.
@@ -1083,10 +1067,6 @@ function renderConfig(){
   document.getElementById('cfg-corplink-pct').value = STORE.config.corplinkPct;
   document.getElementById('cfg-bidatx-pct').value = STORE.config.bidatxPct;
   document.getElementById('cfg-sicoob-bidatx-vick').value = STORE.config.sicoobBidatxPctVick;
-  document.getElementById('cfg-cartao-bidatx-normal').value = STORE.config.cartaoBidatxPctNormal;
-  document.getElementById('cfg-cartao-bidatx-vick').value = STORE.config.cartaoBidatxPctVick;
-  document.getElementById('cfg-cartao-intermediacao-pct').value = STORE.config.cartaoIntermediacaoPct;
-  document.getElementById('cfg-cartao-agente-pct').value = STORE.config.cartaoCustoOperacionalPct;
   updateConfigPreview();
   renderUsuarios();
   renderRetiradas();
@@ -1101,24 +1081,6 @@ async function saveBidatxPct(){
   const { error } = await sbClient.from('cbs_config').update({ bidatx_pct: pct, sicoob_bidatx_pct_vick: vick }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
   toast('% padrão da BIDATX salvo.');
-  await refreshStore(); renderAll();
-}
-async function saveCartaoCascataPct(){
-  const intermediacao = Number(val('cfg-cartao-intermediacao-pct'));
-  const custoOp = Number(val('cfg-cartao-agente-pct'));
-  if(isNaN(intermediacao) || intermediacao<0 || intermediacao>100 || isNaN(custoOp) || custoOp<0 || custoOp>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
-  const { error } = await sbClient.from('cbs_config').update({ cartao_intermediacao_pct: intermediacao, cartao_custo_operacional_pct: custoOp }).eq('id',1);
-  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
-  toast('Divisão padrão do Grupag salva.');
-  await refreshStore(); renderAll();
-}
-async function saveCartaoBidatxPct(){
-  const normal = Number(val('cfg-cartao-bidatx-normal'));
-  const vick = Number(val('cfg-cartao-bidatx-vick'));
-  if(isNaN(normal) || normal<0 || normal>100 || isNaN(vick) || vick<0 || vick>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
-  const { error } = await sbClient.from('cbs_config').update({ cartao_bidatx_pct_normal: normal, cartao_bidatx_pct_vick: vick }).eq('id',1);
-  if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
-  toast('% padrão da BIDATX pro Grupag salvo.');
   await refreshStore(); renderAll();
 }
 function renderNdaStatus(){
@@ -1472,26 +1434,9 @@ function calcLucro(produto){
 // as 2 linhas de negócio que existem — cada seção do Dashboard abaixo dos cards gerais é uma delas.
 const DASHBOARD_PRODUTOS = ['Sicoob', 'Cartão de Crédito'];
 function dashboardCards(t, l, ehOperacional, produto){
-  // Fly Pay: Lucro Bruto = Lucro Líquido (não tem etapa intermediária, ver calcCascataRecebimento) —
-  // por isso só 1 card de lucro, não 2. Cascata é uma divisão só em 4 fatias irmãs (Intermediação,
-  // Custo Operacional, comissão de venda, pool BIDATX) — "Comissionamento rede"/"Pool BIDATX" aqui são
-  // essas 2 últimas fatias, derivadas dos %s já configurados (não precisa de config novo):
-  // comissãoPct = bidatxPctNormal - bidatxPctVick (a diferença É a comissão); poolPct = o que sobra.
-  if(produto==='Cartão de Crédito'){
-    const comissaoPct = round2((Number(STORE.config.cartaoBidatxPctNormal)||0) - (Number(STORE.config.cartaoBidatxPctVick)||0));
-    const poolPct = round2(100 - (Number(STORE.config.cartaoIntermediacaoPct)||0) - (Number(STORE.config.cartaoCustoOperacionalPct)||0) - comissaoPct);
-    const cards = [
-      {lbl:'Total recebido', val:fmtR$(t.totalRecebido), cls:'blue'},
-      {lbl:'Imposto retido', val:fmtR$(t.totalImposto), cls:'warn'},
-      {lbl:'Lucro líquido Enterprise Capital', val:fmtR$(t.totalLiquidoEmpresa), cls:'blue'},
-      {lbl:'Intermediação', val:fmtR$(t.totalCorplink), cls:''},
-      {lbl:'Custo Operacional', val:fmtR$(t.totalAgente), cls:''},
-      {lbl:`Comissionamento rede (${comissaoPct}%)`, val:fmtR$(round2(t.totalLiquidoEmpresa*comissaoPct/100)), cls:''},
-      {lbl:`Pool BIDATX (${poolPct}%)`, val:fmtR$(round2(t.totalLiquidoEmpresa*poolPct/100)), cls:''},
-    ];
-    return cards.map(c=>`<div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>`).join('');
-  }
-  const cards = [
+  // Grupag (2026-09-25, substitui o Fly Pay): mesma conta do Sicoob, só sem o CorpLink — então mesmos
+  // cards, menos o de CorpLink (seria sempre R$0).
+  let cards = [
     {lbl:'Total recebido', val:fmtR$(t.totalRecebido), cls:'blue'},
     {lbl:'Imposto retido', val:fmtR$(t.totalImposto), cls:'warn'},
     {lbl:'Lucro bruto Enterprise Capital', val:fmtR$(t.lucroBrutoCBS), cls:'blue'},
@@ -1502,6 +1447,7 @@ function dashboardCards(t, l, ehOperacional, produto){
     {lbl:'Pagamentos realizados', val:fmtR$(t.repassadoPago), cls:'green'},
     {lbl:'Pagamentos pendentes', val:fmtR$(t.repassadoPendente), cls:'warn'},
   ];
+  if(produto==='Cartão de Crédito') cards = cards.filter(c=>c.lbl!=='CorpLink');
   if(!ehOperacional) cards.push({lbl:'Lucros Enterprise', val:fmtR$(l.lucro), cls:'green'});
   return cards.map(c=>`<div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>`).join('');
 }
@@ -1865,13 +1811,11 @@ function renderSplitBox(){
   }
   updateSplitTotal();
 }
-// teto de verdade da divisão da rede: no Sicoob é 100% (Intermediação/Custo Operacional já reduzem a
-// base antes de chegar aqui); no Fly Pay, Intermediação e Custo Operacional são fatias irmãs do MESMO
-// Lucro Líquido que a rede divide — então o que sobra pra rede é sempre 100% menos essas duas.
+// teto da divisão da rede: 100% do Lucro Líquido (Intermediação/CorpLink e Custo Operacional já saíram
+// antes, em sequência). Era menor no Fly Pay (fatias irmãs), mas o Grupag usa a conta do Sicoob.
+// Mantida como função pra não mexer nos chamadores.
 function tetoSplitRede(){
-  const produto = val('mn-produto');
-  if(produto!=='Cartão de Crédito') return 100;
-  return round2(100 - (Number(STORE.config.cartaoIntermediacaoPct)||0) - (Number(STORE.config.cartaoCustoOperacionalPct)||0));
+  return 100;
 }
 function updateSplitTotal(){
   const t = mnSplitRows.reduce((a,r)=>a+(Number(r.percentual)||0),0);
@@ -1927,9 +1871,8 @@ function sugerirPercentualBidatx(){
   if(idx===-1) return; // BIDATX não está na divisão desse negócio — não mexe, decisão do usuário
   const produto = val('mn-produto');
   const vickVendeu = mnSplitRows.some(r=>r.comissionadoId && comById(Number(r.comissionadoId))?.socioVinculado===VICK_EMAIL);
-  const sugerido = produto==='Cartão de Crédito'
-    ? (vickVendeu ? STORE.config.cartaoBidatxPctVick : STORE.config.cartaoBidatxPctNormal)
-    : (vickVendeu ? STORE.config.sicoobBidatxPctVick : STORE.config.bidatxPct);
+  // Sicoob e Grupag usam os mesmos % (70% normal / 20% quando o Vinicius vende direto)
+  const sugerido = vickVendeu ? STORE.config.sicoobBidatxPctVick : STORE.config.bidatxPct;
   mnSplitRows[idx].percentual = sugerido;
   renderSplitBox();
 }
@@ -2246,13 +2189,9 @@ function buildSplitRowsFromNegocio(negocioId, existingSplits){
       comprovantePath: prev ? prev.comprovantePath : null };
   });
 }
-// atualiza o rótulo "CorpLink"/"Intermediação" conforme o produto do negócio selecionado, e devolve
-// o produto (pra quem chamar decidir se pré-preenche defaults diferentes).
+// devolve o produto do negócio selecionado (pra quem chamar decidir se pré-preenche defaults diferentes).
 function labelEDefaultsPorProduto(negId){
-  const produto = negById(negId)?.produto || 'Sicoob';
-  const lbl = document.getElementById('mr-corplink-label');
-  if(lbl) lbl.textContent = produto==='Cartão de Crédito' ? '% Intermediação' : '% CorpLink';
-  return produto;
+  return negById(negId)?.produto || 'Sicoob';
 }
 function onRecebimentoNegocioChange(){
   const negId = Number(val('mr-negocio'));
@@ -2260,30 +2199,20 @@ function onRecebimentoNegocioChange(){
   const produto = labelEDefaultsPorProduto(negId);
   // só pré-preenche default de produto num recebimento NOVO — editando um já salvo, respeita o que
   // já está gravado (setado em openRecebimentoModal a partir dos valores do próprio recebimento).
+  // Grupag: mesma conta do Sicoob, só sem CorpLink (0%).
   if(!val('mr-id')){
-    setVal('mr-corplink-pct', produto==='Cartão de Crédito' ? STORE.config.cartaoIntermediacaoPct : STORE.config.corplinkPct);
-    setVal('mr-agente-pct', produto==='Cartão de Crédito' ? STORE.config.cartaoCustoOperacionalPct : STORE.config.agentePct);
+    setVal('mr-corplink-pct', produto==='Cartão de Crédito' ? 0 : STORE.config.corplinkPct);
+    setVal('mr-agente-pct', STORE.config.agentePct);
   }
   renderRecebimentoSplitPreview();
 }
-// cascata do Sicoob: Recebido -> Imposto -> Lucro Bruto -> CorpLink (sobre o Lucro Bruto) -> Custo
+// cascata (Sicoob e Grupag): Recebido -> Imposto -> Lucro Bruto -> CorpLink (sobre o Lucro Bruto) -> Custo
 // Operacional (sobre o que SOBRA depois do CorpLink, não sobre o Lucro Bruto original) -> Lucro
-// Líquido. É SEQUENCIAL, uma etapa consome a base da próxima.
-// cascata do Cartão de Crédito, corrigida em 2026-09-15 (a versão de 09-14 estava errada — criava um
-// "Lucro Líquido" intermediário reduzido, como se Intermediação/Custo Operacional saíssem ANTES da
-// comissão/BIDATX; não é assim). Aqui não tem etapa intermediária nenhuma: o que sobra do imposto
-// (Lucro Bruto) já É o Lucro Líquido — 100% de referência — dividido de uma vez em 4 fatias irmãs que
-// somam 100% (10% Intermediação + 10% Custo Operacional + 50% comissão + 30% BIDATX, por exemplo):
-// Intermediação e Custo Operacional são só bucket informativo do CBS, não reduzem a base de ninguém.
+// Líquido. É SEQUENCIAL, uma etapa consome a base da próxima. O Grupag é igual, só que com CorpLink 0%
+// (a versão paralela do Fly Pay saiu junto com ele, 2026-09-25).
 function calcCascataRecebimento(valorRecebido, impostoPct, agentePct, corplinkPct, produto='Sicoob'){
   const valorImposto = round2(valorRecebido * impostoPct / 100);
   const lucroBrutoCBS = round2(valorRecebido - valorImposto);
-  if(produto==='Cartão de Crédito'){
-    const valorCorplink = round2(lucroBrutoCBS * (Number(corplinkPct)||0) / 100); // "Intermediação"
-    const valorAgente = round2(lucroBrutoCBS * (Number(agentePct)||0) / 100); // Custo Operacional
-    const valorLiquido = lucroBrutoCBS; // sem redução — comissão/BIDATX são fatia do mesmo 100%, não do que sobra
-    return { valorImposto, lucroBrutoCBS, valorCorplink, baseAgente: lucroBrutoCBS, valorAgente, valorLiquido };
-  }
   const valorCorplink = round2(lucroBrutoCBS * (Number(corplinkPct)||0) / 100);
   const baseAgente = round2(lucroBrutoCBS - valorCorplink); // o que sobra do Lucro Bruto depois do CorpLink
   const valorAgente = round2(baseAgente * agentePct / 100);
@@ -2299,14 +2228,8 @@ function renderRecebimentoSplitPreview(){
   const agentePct = Number(val('mr-agente-pct'))||0;
   const corplinkPct = Number(val('mr-corplink-pct'))||0;
   const c = calcCascataRecebimento(valorTotal, impostoPct, agentePct, corplinkPct, produto);
-  const nomeCorplink = produto==='Cartão de Crédito' ? 'Intermediação' : 'CorpLink';
-  const resumo = produto==='Cartão de Crédito'
-    ? `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
-      Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b><br>
-      ${nomeCorplink} (${corplinkPct||0}%): <b>${fmtR$(c.valorCorplink)}</b> — Custo Operacional (${agentePct||0}%): <b>${fmtR$(c.valorAgente)}</b>
-      <div style="margin-top:4px;color:var(--text-faint)">Intermediação, Custo Operacional e a comissão da rede abaixo são todas fatias do mesmo Lucro Líquido — uma não reduz a base da outra.</div>
-    </div>`
-    : `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+  const nomeCorplink = 'CorpLink';
+  const resumo = `<div class="split-sum" style="text-align:left;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
     Recebido: <b>${fmtR$(valorTotal)}</b> — Imposto (${impostoPct||0}%): <b>${fmtR$(c.valorImposto)}</b> — Lucro Bruto: <b>${fmtR$(c.lucroBrutoCBS)}</b><br>
     − ${nomeCorplink} (${corplinkPct||0}% do Lucro Bruto): <b>${fmtR$(c.valorCorplink)}</b> — sobra ${fmtR$(c.baseAgente)}<br>
     − Custo Operacional (${agentePct||0}% do que sobrou): <b>${fmtR$(c.valorAgente)}</b> — Lucro Líquido: <b style="color:var(--accent)">${fmtR$(c.valorLiquido)}</b>
