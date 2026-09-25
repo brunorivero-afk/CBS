@@ -222,12 +222,17 @@ tbody tr:hover{background:var(--card);}
 
 /* extrato print */
 #print-area{display:none;}
+/* impressão: tira o app inteiro do fluxo (display:none), não só "invisível" — antes o app escondido
+   (visibility:hidden) continuava ocupando altura e o fundo escuro do tema saía em páginas extras. */
+@page{margin:14mm;}
 @media print{
-  body *{visibility:hidden;}
-  #print-area, #print-area *{visibility:visible;}
-  #print-area{display:block!important;position:absolute;top:0;left:0;width:100%;padding:20px;color:#000;background:#fff;}
+  html,body{background:#fff!important;color:#000!important;min-height:0!important;height:auto!important;}
+  body > *:not(#print-area){display:none!important;}
+  #print-area{display:block!important;position:static;width:100%;padding:0;color:#000;background:#fff;}
   #print-area table{color:#000;}
   #print-area th,#print-area td{border-color:#ccc;}
+  #print-area h2,#print-area h3{break-after:avoid;}
+  #print-area tr{break-inside:avoid;}
 }
 
 /* responsive */
