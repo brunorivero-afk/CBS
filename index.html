@@ -358,6 +358,11 @@ tbody tr:hover{background:var(--card);}
 
       <!-- RECEBIMENTOS -->
       <div class="view" id="view-recebimentos">
+        <div class="tabs" id="recebimentos-produto-tabs" style="margin-bottom:14px">
+          <div class="tab active" data-produto="" onclick="setRecebimentoProdutoFiltro('')">Todos</div>
+          <div class="tab" data-produto="Sicoob" onclick="setRecebimentoProdutoFiltro('Sicoob')">Sicoob</div>
+          <div class="tab" data-produto="Cartão de Crédito" onclick="setRecebimentoProdutoFiltro('Cartão de Crédito')">Grupag</div>
+        </div>
         <div class="panel">
           <div class="panel-head">
             <h3>Recebimentos do banco</h3>
@@ -1452,6 +1457,15 @@ function dashboardCards(t, l, ehOperacional, produto){
   return cards.map(c=>`<div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>`).join('');
 }
 function dashboardLucroSocioHtml(l){
+  // pedido do usuário (2026-09-25): pra todo mundo, o negócio aparece como do Vinicius — só o nome dele
+  // fica na tabela, com o Lucro Sócio TOTAL (a parte do usuário é a dele dividida por dois, ele sabe).
+  // Se o Vinicius não estiver entre os sócios, cai no comportamento antigo (todos os sócios).
+  const vick = l.socios.find(s=>s.email===VICK_EMAIL);
+  if(vick){
+    return `<div class="tbl-wrap"><table><thead><tr><th>Sócio</th><th>Lucro Sócio (total)</th></tr></thead><tbody>
+      <tr><td>${esc(vick.nome)}</td><td><b style="color:var(--accent)">${fmtR$(l.lucro)}</b></td></tr>
+    </tbody></table></div>`;
+  }
   return `
     ${l.socios.length && !l.usaPercentual && l.somaPct>0 ? `<p class="field-hint" style="margin-bottom:10px">Os % de lucro configurados somam ${l.somaPct}% (não 100%) — usando divisão igual entre os sócios por enquanto. Ajuste em Configurações → Usuários.</p>` : ''}
     <div class="tbl-wrap"><table><thead><tr><th>Sócio</th>${l.usaPercentual?'<th>%</th>':''}<th>Parte no Lucro Sócio</th></tr></thead><tbody>
@@ -1607,6 +1621,10 @@ const PIPELINE_COLUNAS = [
   {key:'Conta aberta', label:'Conta aberta'},
   {key:'Recebido', label:'Recebido'},
 ];
+// no Grupag não tem "do banco" — a etapa se chama só "Em análise" (a chave gravada continua a mesma).
+function pipelineColLabel(c, produto){
+  return (c.key==='Em análise no banco' && produto==='Cartão de Crédito') ? 'Em análise' : c.label;
+}
 // agrupa os negócios ativos por coluna do pipeline — reaproveitado no quadro e no relatório.
 // "Recebido" só pega quem teve recebimento NO MÊS CORRENTE. Quem já recebeu algum dia mas não
 // neste mês simplesmente some do quadro inteiro — o pipeline acompanha até "formar", depois
@@ -1665,7 +1683,7 @@ function renderPipeline(){
   const grupos = agruparPipeline();
   board.innerHTML = PIPELINE_COLUNAS.map(c=>`
     <div class="kanban-col">
-      <div class="kanban-col-head"><span>${esc(c.label)}</span><b>${grupos[c.key].length}</b></div>
+      <div class="kanban-col-head"><span>${esc(pipelineColLabel(c, pipelineProdutoAtivo))}</span><b>${grupos[c.key].length}</b></div>
       ${grupos[c.key].length ? grupos[c.key].map(({n,fin})=>pipelineCardHtml(n, c.key==='Recebido'?fin:null, c.key)).join('') : `<div class="kanban-empty">Vazio</div>`}
     </div>
   `).join('');
@@ -1693,7 +1711,7 @@ function gerarRelatorioPipeline(){
 
   PIPELINE_COLUNAS.forEach(c=>{
     const itens = grupos[c.key];
-    html += `<h3 style="font-size:14px;border-bottom:1px solid #999;padding-bottom:4px;margin:18px 0 8px">${esc(c.label)} (${itens.length})</h3>`;
+    html += `<h3 style="font-size:14px;border-bottom:1px solid #999;padding-bottom:4px;margin:18px 0 8px">${esc(pipelineColLabel(c, pipelineProdutoAtivo))} (${itens.length})</h3>`;
     html += !itens.length
       ? `<div style="font-size:12.5px;color:#777;margin-bottom:8px">Nenhum negócio nessa etapa.</div>`
       : `<table style="width:100%;border-collapse:collapse;font-size:12.5px;margin-bottom:8px">
@@ -2120,10 +2138,19 @@ function fillRecebimentoFiltroNegocio(){
   const sel = document.getElementById('rec-filtro-negocio');
   if(!sel) return;
   const atual = sel.value;
-  sel.innerHTML = `<option value="">Todos os negócios</option>` +
-    [...STORE.negocios].sort((a,b)=>(a.empresaCliente||'').localeCompare(b.empresaCliente||''))
+  // a lista de clientes acompanha a aba de negócio ativa (Sicoob/Grupag) — com 100 clientes, só os do negócio escolhido
+  sel.innerHTML = `<option value="">Todos os clientes</option>` +
+    [...STORE.negocios].filter(n=>!recebimentoProdutoFiltro || (n.produto||'Sicoob')===recebimentoProdutoFiltro)
+      .sort((a,b)=>(a.empresaCliente||'').localeCompare(b.empresaCliente||''))
       .map(n=>`<option value="${n.id}">${esc(n.empresaCliente)} (${esc(produtoLabel(n.produto))})</option>`).join('');
   sel.value = atual;
+}
+// filtro por negócio de verdade (Sicoob/Grupag) nos Recebimentos — mesmo padrão de abas de Negócios/Pipeline
+let recebimentoProdutoFiltro = '';
+function setRecebimentoProdutoFiltro(produto){
+  recebimentoProdutoFiltro = produto;
+  document.querySelectorAll('#recebimentos-produto-tabs .tab').forEach(el=>el.classList.toggle('active', el.dataset.produto===produto));
+  renderRecebimentos();
 }
 function renderRecebimentos(){
   fillRecebimentoFiltroNegocio();
@@ -2132,6 +2159,7 @@ function renderRecebimentos(){
   const ate = document.getElementById('rec-ate')?.value||'';
   const tb = document.querySelector('#tbl-recebimentos tbody');
   let list = [...STORE.recebimentos];
+  if(recebimentoProdutoFiltro) list = list.filter(r=>(negById(r.negocioId)?.produto||'Sicoob')===recebimentoProdutoFiltro);
   if(filtroNeg) list = list.filter(r=>String(r.negocioId)===filtroNeg);
   if(de) list = list.filter(r=>(r.data||'')>=de);
   if(ate) list = list.filter(r=>(r.data||'')<=ate);
