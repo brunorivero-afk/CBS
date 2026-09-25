@@ -313,7 +313,7 @@ tbody tr:hover{background:var(--card);}
         <div class="tabs" id="negocios-produto-tabs" style="margin-bottom:14px">
           <div class="tab active" data-produto="" onclick="setNegocioProdutoFiltro('')">Todos</div>
           <div class="tab" data-produto="Sicoob" onclick="setNegocioProdutoFiltro('Sicoob')">Sicoob</div>
-          <div class="tab" data-produto="Cartão de Crédito" onclick="setNegocioProdutoFiltro('Cartão de Crédito')">Fly Pay</div>
+          <div class="tab" data-produto="Cartão de Crédito" onclick="setNegocioProdutoFiltro('Cartão de Crédito')">Grupag</div>
         </div>
         <div class="panel">
           <div class="panel-head">
@@ -347,7 +347,7 @@ tbody tr:hover{background:var(--card);}
         <p class="field-hint" style="margin-bottom:14px">Acompanha a situação de cada negócio junto ao Sicoob, do indicado até a conta aberta. Use ◀ Voltar / Avançar ▶ em cada card pra mudar de etapa. "Recebido" é automático e mensal — o negócio aparece ali só nos meses em que teve Recebimento lançado; fora isso, some do quadro (já formou, o controle contínuo fica em Recebimentos/Dashboard/Extratos).</p>
         <div class="tabs" id="pipeline-produto-tabs" style="margin-bottom:14px">
           <div class="tab active" data-produto="Sicoob" onclick="setPipelineProduto('Sicoob')">Sicoob</div>
-          <div class="tab" data-produto="Cartão de Crédito" onclick="setPipelineProduto('Cartão de Crédito')">Fly Pay</div>
+          <div class="tab" data-produto="Cartão de Crédito" onclick="setPipelineProduto('Cartão de Crédito')">Grupag</div>
         </div>
         <div class="toolbar" style="margin-bottom:14px">
           <label class="chk" style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-dim)"><input type="checkbox" id="rel-interno"> Incluir números internos (comissão/valores)</label>
@@ -492,7 +492,7 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>Divisão da comissão — produto Fly Pay</h3></div>
+          <div class="panel-head"><h3>Divisão da comissão — produto Grupag</h3></div>
           <p class="field-hint" style="margin-bottom:16px">Diferente do Sicoob: aqui Intermediação e Custo Operacional saem os dois direto do Lucro Bruto (mesmo imposto do Sicoob), em paralelo — não um sequencial ao outro. Editável por lançamento, isso aqui é só o padrão pros novos.</p>
           <div class="field"><label>% Intermediação (sobre o Lucro Bruto)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-intermediacao-pct"></div>
           <div class="field"><label>% Custo Operacional (sobre o Lucro Bruto)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-agente-pct"></div>
@@ -500,7 +500,7 @@ tbody tr:hover{background:var(--card);}
         </div>
 
         <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>% padrão da BIDATX — produto Fly Pay</h3></div>
+          <div class="panel-head"><h3>% padrão da BIDATX — produto Grupag</h3></div>
           <p class="field-hint" style="margin-bottom:16px">Aqui a % sugerida no negócio varia conforme o Vinicius está vendendo direto ou não (sociedade Bruno/Diego/Eduardo/BIDATX) — o sistema já detecta isso sozinho pelo vínculo de sócio do comissionado, sempre editável no negócio pra exceção.</p>
           <div class="field"><label>% quando alguém da rede vende (normal)</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-bidatx-normal"></div>
           <div class="field"><label>% quando o Vinicius vende direto</label><input type="number" step="0.01" min="0" max="100" id="cfg-cartao-bidatx-vick"></div>
@@ -612,7 +612,7 @@ tbody tr:hover{background:var(--card);}
       <label>Produto</label>
       <select id="mn-produto" onchange="sugerirPercentualBidatx()">
         <option value="Sicoob">Sicoob</option>
-        <option value="Cartão de Crédito">Fly Pay</option>
+        <option value="Cartão de Crédito">Grupag</option>
       </select>
       <div class="field-hint">Muda a % sugerida pra BIDATX na divisão abaixo — ajuste automático, sempre editável se for exceção.</div>
     </div>
@@ -928,7 +928,7 @@ function setVal(id,v){ document.getElementById(id).value = v==null?'':v; }
 function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 // nome de EXIBIÇÃO do produto — o valor gravado no banco continua 'Cartão de Crédito' (não mexemos
 // no banco), mas a marca real da operadora é "Fly Pay", então é isso que o usuário deve ver na tela.
-function produtoLabel(p){ return p==='Cartão de Crédito' ? 'Fly Pay' : (p||'Sicoob'); }
+function produtoLabel(p){ return p==='Cartão de Crédito' ? 'Grupag' : (p||'Sicoob'); }
 function toast(msg,type){
   const t=document.getElementById('toast'); t.textContent=msg; t.className='show '+(type||'ok');
   clearTimeout(window._toastTO); window._toastTO=setTimeout(()=>{t.className='';},3200);
@@ -1109,7 +1109,7 @@ async function saveCartaoCascataPct(){
   if(isNaN(intermediacao) || intermediacao<0 || intermediacao>100 || isNaN(custoOp) || custoOp<0 || custoOp>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
   const { error } = await sbClient.from('cbs_config').update({ cartao_intermediacao_pct: intermediacao, cartao_custo_operacional_pct: custoOp }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
-  toast('Divisão padrão do Fly Pay salva.');
+  toast('Divisão padrão do Grupag salva.');
   await refreshStore(); renderAll();
 }
 async function saveCartaoBidatxPct(){
@@ -1118,7 +1118,7 @@ async function saveCartaoBidatxPct(){
   if(isNaN(normal) || normal<0 || normal>100 || isNaN(vick) || vick<0 || vick>100){ toast('Informe percentuais entre 0 e 100.','err'); return; }
   const { error } = await sbClient.from('cbs_config').update({ cartao_bidatx_pct_normal: normal, cartao_bidatx_pct_vick: vick }).eq('id',1);
   if(error){ toast('Erro ao salvar: '+error.message,'err'); return; }
-  toast('% padrão da BIDATX pro Fly Pay salvo.');
+  toast('% padrão da BIDATX pro Grupag salvo.');
   await refreshStore(); renderAll();
 }
 function renderNdaStatus(){
@@ -1881,7 +1881,7 @@ function updateSplitTotal(){
   el.style.color = t>teto ? '#fca5a5' : (t===teto?'#10b981':'');
   const hint = document.getElementById('mn-split-hint');
   if(hint) hint.textContent = teto<100
-    ? `Fly Pay reserva ${round2(100-teto)}% pra Intermediação + Custo Operacional antes da divisão da rede — por isso o máximo aqui é ${teto}%, não 100%.`
+    ? `Grupag reserva ${round2(100-teto)}% pra Intermediação + Custo Operacional antes da divisão da rede — por isso o máximo aqui é ${teto}%, não 100%.`
     : '';
 }
 
@@ -1945,7 +1945,7 @@ async function saveNegocio(){
   const somaPct = round2(splits.reduce((a,r)=>a+r.percentual,0));
   const teto = tetoSplitRede();
   if(somaPct > teto){
-    const motivo = teto<100 ? ` (Fly Pay reserva ${round2(100-teto)}% pra Intermediação + Custo Operacional)` : '';
+    const motivo = teto<100 ? ` (Grupag reserva ${round2(100-teto)}% pra Intermediação + Custo Operacional)` : '';
     toast(`A soma dos percentuais da rede (${somaPct}%) não pode passar de ${teto}%${motivo}. Ajuste antes de salvar.`,'err'); return;
   }
   const id = val('mn-id');
