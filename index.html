@@ -142,6 +142,9 @@ a{color:inherit;}
 .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;}
 .panel-head h3{font-size:15.5px;font-weight:700;}
 .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+/* botão discreto do resumo consolidado (só Sócio) — quase invisível de propósito até passar o mouse */
+.resumo-geral-btn{background:none;border:none;color:var(--text-faint);font-size:15px;opacity:.3;cursor:pointer;padding:4px 8px;border-radius:6px;}
+.resumo-geral-btn:hover{opacity:1;color:var(--accent);background:var(--card);}
 .tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding-bottom:0;}
 .tabs .tab{padding:8px 16px;border-radius:8px 8px 0 0;font-size:13px;font-weight:600;color:var(--text-dim);cursor:pointer;border:1px solid transparent;border-bottom:none;}
 .tabs .tab:hover{color:var(--text);}
@@ -296,6 +299,7 @@ tbody tr:hover{background:var(--card);}
       </div>
       <div class="topbar-stat" id="topbar-negocios">Negócios Ativos <b id="topbar-negocios-val">0</b></div>
       <div class="toolbar">
+        <button class="resumo-geral-btn" id="btn-resumo-geral" onclick="openResumoGeral()" title="Resumo geral" style="display:none">Σ</button>
         <button class="btn btn-primary btn-sm" id="topbar-cta" onclick="openNegocioModal()">+ Novo negócio</button>
       </div>
     </div>
@@ -795,6 +799,15 @@ tbody tr:hover{background:var(--card);}
   </div>
 </div>
 
+<!-- ============ MODAL: RESUMO GERAL (só Sócio) ============ -->
+<div class="modal-overlay" id="modal-resumo-geral">
+  <div class="modal" style="max-width:760px">
+    <div class="modal-head"><h3>Resumo geral — Sicoob + Grupag</h3><button class="modal-close" onclick="closeModal('modal-resumo-geral')">✕</button></div>
+    <p class="field-hint" style="margin-bottom:14px">Tudo somado, sem separar por negócio.</p>
+    <div class="grid-cards" id="resumo-geral-cards"></div>
+  </div>
+</div>
+
 <!-- ============ MODAL: PAGAR ============ -->
 <div class="modal-overlay" id="modal-pagar">
   <div class="modal">
@@ -1030,6 +1043,8 @@ function goView(vReq){
   document.getElementById('topbar-title').textContent = m.title;
   document.getElementById('topbar-sub').textContent = m.sub;
   document.getElementById('topbar-negocios').style.display = (v==='dashboard' && !comercial) ? 'inline-flex' : 'none';
+  // resumo consolidado: só Sócio, só no Dashboard (Operacional e Comercial nem enxergam o botão)
+  document.getElementById('btn-resumo-geral').style.display = (v==='dashboard' && currentUser && currentUser.posicao==='Sócio') ? 'inline-flex' : 'none';
   const cta = document.getElementById('topbar-cta');
   if(!comercial && m.cta){ cta.style.display='inline-flex'; cta.textContent=m.cta; cta.onclick=m.ctaFn; }
   else{ cta.style.display='none'; }
@@ -1455,6 +1470,12 @@ function dashboardCards(t, l, ehOperacional, produto){
   if(produto==='Cartão de Crédito') cards = cards.filter(c=>c.lbl!=='CorpLink');
   if(!ehOperacional) cards.push({lbl:'Lucros Enterprise', val:fmtR$(l.lucro), cls:'green'});
   return cards.map(c=>`<div class="stat-card"><div class="lbl">${c.lbl}</div><div class="val ${c.cls}">${c.val}</div></div>`).join('');
+}
+// consolidado dos dois negócios (o Dashboard normal só soma total/imposto no topo) — botão Σ discreto, só Sócio
+function openResumoGeral(){
+  if(!currentUser || currentUser.posicao!=='Sócio') return;
+  document.getElementById('resumo-geral-cards').innerHTML = dashboardCards(totals(), calcLucro(), false, '');
+  document.getElementById('modal-resumo-geral').classList.add('open');
 }
 function dashboardLucroSocioHtml(l){
   // pedido do usuário (2026-09-25): pra todo mundo, o negócio aparece como do Vinicius — só o nome dele
